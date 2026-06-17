@@ -50,22 +50,43 @@ export function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.rect(0, 0, 210, 15, 'F');
 
   // --- BRANDING SECTION ---
+  // Stylized UNKE vector logo
+  const logoX = 20;
+  const logoY = 24;
+  
+  doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+  // Outer circular/square speech bubble shape
+  doc.ellipse(logoX + 4.5, logoY + 4.5, 4.5, 4.5, 'F');
+  doc.rect(logoX + 4.5, logoY + 4.5, 4.5, 4.5, 'F');
+
+  // Inner white U-shape representation
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(1.0);
+  // Left vertical bar of U
+  doc.line(logoX + 2.8, logoY + 2.5, logoX + 2.8, logoY + 5.5);
+  // Right vertical bar of U
+  doc.line(logoX + 6.2, logoY + 2.5, logoX + 6.2, logoY + 5.5);
+  // U rounding connection at the bottom
+  doc.line(logoX + 2.8, logoY + 5.5, logoX + 2.8, logoY + 6.8);
+  doc.line(logoX + 6.2, logoY + 5.5, logoX + 6.2, logoY + 6.8);
+  doc.line(logoX + 2.8, logoY + 6.8, logoX + 6.2, logoY + 6.8);
+
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text('UNKE', 20, 32);
+  doc.text('UNKE', 32, 32);
   
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
-  doc.text('ESTUDIO DE DISENO Web & Identidad', 20, 37);
+  doc.text('ESTUDIO DE DISENO Web & Identidad', 32, 37);
 
   // Studio Details (Top Right Alignment)
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
   doc.text('UNKE Estudio Creativo', 145, 28);
-  doc.text('hola@unke.design', 145, 33);
+  doc.text('contacto@unke.com.ar', 145, 33);
   doc.text('Argentina - Operaciones Remotas', 145, 38);
 
   // Thin separator line
@@ -236,7 +257,7 @@ export function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFontSize(7.5);
   doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
   doc.text('Gracias por confiar en UNKE para sus soluciones de diseno visual y desarrollo web.', 20, pageHeight - 14);
-  doc.text('UNKE | www.unke.design | hola@unke.design', 135, pageHeight - 14);
+  doc.text('UNKE | www.unke.design | contacto@unke.com.ar', 135, pageHeight - 14);
 
   // Save the PDF file
   const filename = `UNKE_Presupuesto_${budget.id}_${budget.clientName.replace(/\s+/g, '_').substring(0, 20)}.pdf`;

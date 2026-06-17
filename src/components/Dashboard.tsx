@@ -60,7 +60,7 @@ export default function Dashboard({
             ESTUDIO UNKE • CONTROL INTEGRAL
           </span>
           <h2 className="text-3xl font-extrabold font-sans tracking-tight leading-none text-gray-950">
-            Design & Software Hub
+            Seguimiento de proyectos
           </h2>
           <p className="text-xs text-slate-600 leading-normal font-medium max-w-xl">
             Hola, willymorinigo. Bienvenido al panel de UNKE. Administra tus cotizaciones en pesos argentinos con cálculo automático e integración de checklists de tareas tras la aprobación de presupuestos.

@@ -22,6 +22,8 @@ interface BudgetCreatorProps {
   onDeleteBudget: (id: string) => void;
   onAddPayment?: (budgetId: string, payment: Payment) => void;
   onUpdateProject?: (project: Project) => void;
+  initialTab?: 'create' | 'history';
+  onTabChange?: (tab: 'create' | 'history') => void;
 }
 
 export default function BudgetCreator({
@@ -33,11 +35,25 @@ export default function BudgetCreator({
   onUpdateBudgetStatus,
   onDeleteBudget,
   onAddPayment,
-  onUpdateProject
+  onUpdateProject,
+  initialTab = 'create',
+  onTabChange
 }: BudgetCreatorProps) {
   // Navigation & Lists
-  const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'history'>(initialTab);
   const [searchHistory, setSearchHistory] = useState('');
+
+  // Sync activeTab if initialTab changes
+  React.useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const handleSetTab = (tab: 'create' | 'history') => {
+    setActiveTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
 
   // Selected budget details and interactive payment states
   const [detailedBudget, setDetailedBudget] = useState<Budget | null>(null);
@@ -221,7 +237,7 @@ export default function BudgetCreator({
     setDraftItems([]);
     setSelectedClientId('');
     setBudgetNotes('');
-    setActiveTab('history');
+    handleSetTab('history');
   };
 
   // History budget matching / filters
@@ -293,7 +309,7 @@ export default function BudgetCreator({
         {/* Tab switch control */}
         <div className="flex bg-slate-100 p-1 rounded-xl self-start sm:self-center">
           <button
-            onClick={() => setActiveTab('create')}
+            onClick={() => handleSetTab('create')}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
               activeTab === 'create' 
                 ? 'bg-white text-gray-900 shadow-sm' 
@@ -303,7 +319,7 @@ export default function BudgetCreator({
             Nuevo Presupuesto Auto-calculable
           </button>
           <button
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleSetTab('history')}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition ${
               activeTab === 'history' 
                 ? 'bg-white text-gray-900 shadow-sm' 
@@ -704,11 +720,27 @@ export default function BudgetCreator({
                   filteredBudgets.map(budget => {
                     const totalPaid = budget.payments.reduce((sum, p) => sum + p.amount, 0);
                     return (
-                      <tr key={budget.id} className="hover:bg-slate-50/50 transition">
-                        <td className="p-3 font-mono font-bold text-[#34877c]">{budget.id}</td>
-                        <td className="p-3 font-mono text-gray-500">{budget.date}</td>
-                        <td className="p-3 text-gray-700">
-                          <p className="font-semibold">{budget.clientName}</p>
+                      <tr key={budget.id} className="hover:bg-slate-50/70 transition-colors duration-150">
+                        <td 
+                          onClick={() => setDetailedBudget(budget)}
+                          className="p-3 font-mono font-bold text-[#34877c] cursor-pointer hover:underline"
+                          title="Haga clic para ver el detalle de este presupuesto"
+                        >
+                          {budget.id}
+                        </td>
+                        <td 
+                          onClick={() => setDetailedBudget(budget)}
+                          className="p-3 font-mono text-gray-500 cursor-pointer"
+                          title="Haga clic para ver el detalle de este presupuesto"
+                        >
+                          {budget.date}
+                        </td>
+                        <td 
+                          onClick={() => setDetailedBudget(budget)}
+                          className="p-3 text-gray-700 cursor-pointer"
+                          title="Haga clic para ver el detalle de este presupuesto"
+                        >
+                          <p className="font-semibold text-gray-950 hover:text-[#34877c] transition-colors">{budget.clientName}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {budget.createdBy && (
                               <span className="text-[8px] bg-slate-100 text-gray-600 font-extrabold px-1.5 py-0.5 rounded-full uppercase">
@@ -723,7 +755,13 @@ export default function BudgetCreator({
                           </div>
                           <p className="text-[10px] text-gray-400 truncate max-w-xs mt-1">{budget.notes || 'Sin observaciones'}</p>
                         </td>
-                        <td className="p-3 text-right font-mono font-bold text-gray-800">{formatCurrency(budget.total)}</td>
+                        <td 
+                          onClick={() => setDetailedBudget(budget)}
+                          className="p-3 text-right font-mono font-bold text-gray-800 cursor-pointer"
+                          title="Haga clic para ver el detalle de este presupuesto"
+                        >
+                          {formatCurrency(budget.total)}
+                        </td>
                         
                         {/* Interactive state pickers */}
                         <td className="p-3 text-center">
@@ -813,7 +851,7 @@ export default function BudgetCreator({
       {activeDetailedBudget && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" id="detailed-budget-modal">
           <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto text-xs text-gray-700 animate-in fade-in zoom-in duration-150">
-            {/* Modal Header */}
+             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
               <div>
                 <span className="text-[10px] bg-[#34877c]/10 text-[#34877c] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -821,12 +859,23 @@ export default function BudgetCreator({
                 </span>
                 <h3 className="text-base font-bold text-gray-900 mt-1">Presupuesto {activeDetailedBudget.id}</h3>
               </div>
-              <button
-                onClick={() => setDetailedBudget(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerPDFExport(activeDetailedBudget)}
+                  className="bg-[#34877c] hover:bg-[#2c7269] text-white py-1.5 px-3.5 rounded-xl flex items-center gap-2 text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer"
+                  title="Descargar presupuesto actual en formato PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar PDF</span>
+                </button>
+                <button
+                  onClick={() => setDetailedBudget(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}

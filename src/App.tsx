@@ -24,6 +24,8 @@ import fedeAvatar from '@/fede.png';
 import nachoAvatar from '@/nacho.png';
 // @ts-ignore
 import willyAvatar from '@/willy.png';
+// @ts-ignore
+import logoSvg from '@/logo.svg';
 
 // Resilient Logo Component that automatically fallbacks to 'U' if custom /logo.svg is missing or loading
 const Logo = ({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) => {
@@ -46,7 +48,7 @@ const Logo = ({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) => {
 
   return (
     <img 
-      src="/logo.svg" 
+      src={logoSvg} 
       alt="UNKE" 
       onError={() => setImgFailed(true)}
       className={size === 'desktop' ? "w-6 h-6 object-contain" : "w-8 h-8 object-contain"}
@@ -57,7 +59,14 @@ const Logo = ({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) => {
 export default function App() {
   // Navigation tabs: 'dashboard' | 'clients' | 'budgets' | 'projects' | 'catalog'
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'budgets' | 'projects' | 'catalog'>('dashboard');
+  const [budgetTabMode, setBudgetTabMode] = useState<'create' | 'history'>('create');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const navigateToBudgets = (subTab: 'create' | 'history') => {
+    setIsMobileMenuOpen(false);
+    setBudgetTabMode(subTab);
+    setActiveTab('budgets');
+  };
 
   // Active Partner & Settings
   const [partnerNames, setPartnerNames] = useState<string[]>(() => {
@@ -460,7 +469,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setActiveTab('budgets')}
+            onClick={() => navigateToBudgets('create')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all text-xs font-semibold ${
               activeTab === 'budgets' 
                 ? 'bg-[#34877c] text-white shadow-sm shadow-[#34877c]/10' 
@@ -470,6 +479,31 @@ export default function App() {
             <FileText className="w-4 h-4 shrink-0" />
             <span>Cotizador & Historial</span>
           </button>
+
+          {activeTab === 'budgets' && (
+            <div className="pl-7 pr-2 py-1 space-y-1">
+              <button
+                onClick={() => setBudgetTabMode('create')}
+                className={`w-full text-left px-2 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-extrabold transition-all border ${
+                  budgetTabMode === 'create'
+                    ? 'border-emerald-200/50 bg-emerald-50/50 text-emerald-800 font-black'
+                    : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-semibold'
+                }`}
+              >
+                + Nuevo Presupuesto
+              </button>
+              <button
+                onClick={() => setBudgetTabMode('history')}
+                className={`w-full text-left px-2 py-1.5 rounded-lg text-[10px] uppercase tracking-wider font-extrabold transition-all border ${
+                  budgetTabMode === 'history'
+                    ? 'border-emerald-200/50 bg-emerald-50/50 text-emerald-800 font-black'
+                    : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-semibold'
+                }`}
+              >
+                📋 Listar Historial PDF
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => setActiveTab('projects')}
@@ -555,24 +589,32 @@ export default function App() {
 
           {/* Actions & Profile (Current Socio Session & Custom Avatar) */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5 px-3 py-1.5 bg-[#f8fafb] border border-[#6f6f6e]/15 rounded-full transition-all shadow-xs">
-              <UserAvatar user={currentUser || 'Willy'} className="w-8 h-8" />
+            <button
+              onClick={handleLogout}
+              title="Click para Cerrar Sesión"
+              className="flex items-center gap-2.5 px-3.5 py-1.5 bg-[#f8fafb] hover:bg-rose-50 border border-[#6f6f6e]/15 hover:border-rose-200 rounded-full transition-all shadow-xs text-left group cursor-pointer"
+            >
+              <div className="relative">
+                <UserAvatar user={currentUser || 'Willy'} className="w-8 h-8 group-hover:opacity-20 transition-opacity" />
+                <LogOut className="w-4 h-4 text-rose-600 absolute inset-0 m-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <div className="text-left leading-tight pr-1.5 shrink-0">
-                <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#6f6f6e] block">
+                <span className="text-[8px] uppercase tracking-wider font-extrabold text-[#6f6f6e] group-hover:text-rose-500 block transition-colors">
                   Socio Colaborando
                 </span>
-                <span className="text-xs font-black text-gray-900 block">
+                <span className="text-xs font-black text-gray-900 group-hover:text-rose-700 block transition-colors">
                   {currentUser}
                 </span>
               </div>
-            </div>
+            </button>
 
             <button
-              onClick={() => setActiveTab('budgets')}
-              className="hidden sm:flex bg-[#34877c] hover:bg-[#2c7269] text-white text-xs font-bold py-2.5 px-4 rounded-full transition-all shadow-sm items-center gap-1.5"
+              onClick={() => navigateToBudgets('history')}
+              className="hidden sm:flex bg-slate-100 hover:bg-slate-200 text-gray-700 hover:text-gray-900 text-xs font-bold py-2.5 px-4 rounded-full border border-gray-200 transition-all shadow-xs items-center gap-1.5 cursor-pointer"
+              title="Ir al Historial de Presupuestos para revisar o descargar"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Cotizar Servicio</span>
+              <FileText className="w-3.5 h-3.5 text-[#34877c]" />
+              <span>Ver Historial</span>
             </button>
 
             {/* Mobile menu toggle */}
@@ -607,12 +649,20 @@ export default function App() {
               Clientes
             </button>
             <button
-              onClick={() => { setActiveTab('budgets'); setIsMobileMenuOpen(false); }}
+              onClick={() => navigateToBudgets('create')}
               className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold ${
-                activeTab === 'budgets' ? 'bg-[#34877c] text-white' : 'text-gray-600 hover:bg-slate-50'
+                activeTab === 'budgets' && budgetTabMode === 'create' ? 'bg-[#34877c] text-white' : 'text-gray-600 hover:bg-slate-50'
               }`}
             >
-              Cotizador & Historial
+              Cotizar Servicio Nuevo
+            </button>
+            <button
+              onClick={() => navigateToBudgets('history')}
+              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold ${
+                activeTab === 'budgets' && budgetTabMode === 'history' ? 'bg-[#34877c] text-white' : 'text-gray-600 hover:bg-slate-50'
+              }`}
+            >
+              Historial de Presupuestos
             </button>
             <button
               onClick={() => { setActiveTab('projects'); setIsMobileMenuOpen(false); }}
@@ -683,6 +733,8 @@ export default function App() {
               onDeleteBudget={handleDeleteBudget}
               onAddPayment={handleAddPayment}
               onUpdateProject={handleUpdateProject}
+              initialTab={budgetTabMode}
+              onTabChange={setBudgetTabMode}
             />
           )}
 
@@ -713,9 +765,6 @@ export default function App() {
         {/* Footer */}
         <footer className="bg-white border-t border-gray-100 py-6 text-center text-xs text-gray-500">
           <p className="font-semibold text-gray-700">Estudio UNKE &copy; 2026. Todos los derechos reservados.</p>
-          <p className="text-[10px] mt-1 text-gray-400">
-            Diseño minimalista corporativo • <span className="text-[#34877c] font-bold">#34877c Teal Accent</span> • <span className="font-semibold text-gray-600">#6f6f6e Slate Gray Balance</span>
-          </p>
         </footer>
 
       </div>

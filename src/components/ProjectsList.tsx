@@ -127,22 +127,29 @@ export default function ProjectsList({
     setNewTaskName('');
   };
 
-  // Quick Inject preloaded task from pool
+  // Quick Inject / Remove preloaded task from pool (permite tildar y destildar)
   const handleQuickInjectTask = (taskName: string) => {
     if (!selectedProject) return;
 
-    // Check if task of this name already exists
-    if (selectedProject.tasks.some(t => t.name === taskName)) return;
+    const exists = selectedProject.tasks.some(t => t.name === taskName);
+    let updatedTasks: ProjectTask[];
 
-    const newTask: ProjectTask = {
-      id: `t_${Date.now()}`,
-      name: taskName,
-      completed: false
-    };
+    if (exists) {
+      // Destildar: remover la tarea del listado del proyecto
+      updatedTasks = selectedProject.tasks.filter(t => t.name !== taskName);
+    } else {
+      // Tildar: agregar la nueva tarea al proyecto
+      const newTask: ProjectTask = {
+        id: `t_${Date.now()}`,
+        name: taskName,
+        completed: false
+      };
+      updatedTasks = [...selectedProject.tasks, newTask];
+    }
 
     const updatedProject: Project = {
       ...selectedProject,
-      tasks: [...selectedProject.tasks, newTask]
+      tasks: updatedTasks
     };
 
     onUpdateProject(updatedProject);
@@ -515,16 +522,25 @@ export default function ProjectsList({
                         <button
                           key={tTask.id}
                           type="button"
-                          disabled={exists}
                           onClick={() => handleQuickInjectTask(tTask.name)}
-                          className={`w-full text-left p-2 rounded text-[10px] border transition flex flex-col justify-start gap-0.5 ${
+                          className={`w-full text-left p-2.5 rounded-xl text-[10px] border transition flex items-start gap-2.5 cursor-pointer ${
                             exists 
-                              ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
-                              : 'bg-white hover:bg-slate-100 border-slate-100 hover:border-slate-200 text-slate-700 font-medium'
+                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-700' 
+                              : 'bg-white hover:bg-slate-50 border-slate-100 hover:border-slate-200 text-slate-700 font-medium'
                           }`}
+                          title={exists ? "Haga clic para remover (destildar) esta tarea del proyecto" : "Haga clic para inyectar esta tarea al proyecto"}
                         >
-                          <span className="line-clamp-2 leading-snug">{tTask.name}</span>
-                          <span className="text-[7.5px] font-bold uppercase text-gray-400 block">{tTask.category}</span>
+                          <div className="mt-0.5 shrink-0">
+                            {exists ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Circle className="w-3.5 h-3.5 text-gray-300" />
+                            )}
+                          </div>
+                          <div className="flex flex-col justify-start gap-0.5 flex-1">
+                            <span className={`line-clamp-2 leading-snug ${exists ? 'font-semibold' : ''}`}>{tTask.name}</span>
+                            <span className={`text-[7px] font-extrabold uppercase block tracking-wider mt-0.5 ${exists ? 'text-emerald-600' : 'text-gray-400'}`}>{tTask.category}</span>
+                          </div>
                         </button>
                       );
                     })}

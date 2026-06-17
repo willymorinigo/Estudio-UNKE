@@ -1,0 +1,6 @@
+{
+  "name": "Estudio UNKE",
+  "description": "Sistema centralizado de administración de proyectos, clientes, presupuestos y facturación para el estudio de diseño UNKE.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

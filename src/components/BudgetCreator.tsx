@@ -19,6 +19,7 @@ interface BudgetCreatorProps {
   projects?: Project[];
   onAddBudget: (budget: Budget) => void;
   onUpdateBudgetStatus: (id: string, status: BudgetStatus) => void;
+  onUpdateBudgetFields?: (id: string, updates: Partial<Budget>) => void;
   onDeleteBudget: (id: string) => void;
   onAddPayment?: (budgetId: string, payment: Payment) => void;
   onUpdateProject?: (project: Project) => void;
@@ -36,6 +37,7 @@ export default function BudgetCreator({
   projects = [],
   onAddBudget,
   onUpdateBudgetStatus,
+  onUpdateBudgetFields,
   onDeleteBudget,
   onAddPayment,
   onUpdateProject,
@@ -660,7 +662,18 @@ export default function BudgetCreator({
                 {/* Fecha Tentativa de Entrega & Opción Mensual */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Fecha Tentativa de Entrega</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase">Fecha Tentativa de Entrega</label>
+                      {estimatedDeliveryDate && (
+                        <button
+                          type="button"
+                          onClick={() => setEstimatedDeliveryDate('')}
+                          className="text-[9px] font-bold text-red-500 hover:text-red-700 uppercase tracking-wider"
+                        >
+                          Blanquear
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="date"
                       value={estimatedDeliveryDate}
@@ -1048,6 +1061,74 @@ export default function BudgetCreator({
                       <option value="Rechazado">Rechazado</option>
                     </select>
                   </div>
+
+                  {/* Configuración de abonos en el modal de detalle */}
+                  <div className="mt-3.5 space-y-1">
+                    <div className="flex items-center gap-1.5 select-none cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="modalIsMonthlyCheckbox"
+                        checked={!!activeDetailedBudget.isMonthly}
+                        onChange={(e) => {
+                          if (onUpdateBudgetFields) {
+                            onUpdateBudgetFields(activeDetailedBudget.id, { isMonthly: e.target.checked });
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded text-[#34877c] border-slate-300 focus:ring-[#34877c] cursor-pointer"
+                      />
+                      <label htmlFor="modalIsMonthlyCheckbox" className="text-[10px] font-bold text-gray-750 cursor-pointer">
+                        Presupuesto Mensual / Abono
+                      </label>
+                    </div>
+                    {activeDetailedBudget.isMonthly && onUpdateBudgetFields && (
+                      <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-100">
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Día"
+                          value={activeDetailedBudget.monthlyBillingDay || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              onUpdateBudgetFields(activeDetailedBudget.id, { monthlyBillingDay: undefined });
+                            } else {
+                              const num = parseInt(val, 10);
+                              if (!isNaN(num) && num >= 1 && num <= 31) {
+                                onUpdateBudgetFields(activeDetailedBudget.id, { monthlyBillingDay: num });
+                              }
+                            }
+                          }}
+                          className="w-14 bg-white border border-slate-200 rounded p-1 px-1.5 font-bold text-gray-850 text-[11px] focus:outline-none focus:ring-1 focus:ring-[#34877c]"
+                        />
+                        <span className="text-[9px] text-gray-500">Día de Cobro (1-31)</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Configuración de entrega en el modal de detalle */}
+                  {onUpdateBudgetFields && (
+                    <div className="mt-3.5 space-y-1.5 pt-2.5 border-t border-slate-250/30">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-gray-750">
+                        <span>Fecha Est. de Entrega</span>
+                        {activeDetailedBudget.estimatedDeliveryDate && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateBudgetFields(activeDetailedBudget.id, { estimatedDeliveryDate: null as any })}
+                            className="text-[9px] font-bold text-red-500 hover:text-red-700 uppercase tracking-wider cursor-pointer"
+                          >
+                            Blanquear
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={activeDetailedBudget.estimatedDeliveryDate || ''}
+                        onChange={e => onUpdateBudgetFields(activeDetailedBudget.id, { estimatedDeliveryDate: e.target.value || (null as any) })}
+                        className="w-full bg-white border border-slate-200 rounded p-1 px-1.5 font-bold text-gray-850 text-[11px] focus:outline-none focus:ring-1 focus:ring-[#34877c]"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-[10px] font-semibold text-gray-400 uppercase block">Total Cotizado</span>

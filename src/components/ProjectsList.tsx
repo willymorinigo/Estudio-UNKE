@@ -134,7 +134,7 @@ export default function ProjectsList({
     if (!selectedProject) return;
     onUpdateProject({
       ...selectedProject,
-      estimatedDeliveryDate: date || undefined
+      estimatedDeliveryDate: date ? date : (null as any)
     });
   };
 
@@ -476,7 +476,18 @@ export default function ProjectsList({
                     </div>
                   )}
                   <div className="space-y-1 bg-white p-2 rounded-lg border border-slate-200/50 mt-1">
-                    <label className="block text-[8px] uppercase font-bold text-gray-450 tracking-wider">Fecha Est. de Entrega</label>
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[8px] uppercase font-bold text-gray-450 tracking-wider">Fecha Est. de Entrega</label>
+                      {selectedProject.estimatedDeliveryDate && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateDeliveryDate('')}
+                          className="text-[8px] font-extrabold text-red-500 hover:text-red-700 uppercase tracking-wider cursor-pointer"
+                        >
+                          Blanquear
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="date"
                       value={selectedProject.estimatedDeliveryDate || ''}

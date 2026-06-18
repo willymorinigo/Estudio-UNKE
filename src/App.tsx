@@ -294,6 +294,25 @@ export default function App() {
     }
   };
 
+  const handleUpdateBudgetFields = async (budgetId: string, updates: Partial<Budget>) => {
+    const b = budgets.find(x => x.id === budgetId);
+    if (!b) return;
+    
+    const updatedB: Budget = { 
+      ...b, 
+      ...updates,
+      updatedBy: activePartner,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await saveDocument('budgets', budgetId, updatedB);
+    
+    // If status changes to Approved, auto launch project!
+    if (updates.status === 'Aprobado') {
+      launchProjectFromBudget(updatedB);
+    }
+  };
+
   // Helper: Auto-launch a project with matching pieces and preset task checklists when budget is approved
   const launchProjectFromBudget = async (budget: Budget) => {
     // Check if project already launched for this budget
@@ -746,6 +765,7 @@ export default function App() {
               projects={projects}
               onAddBudget={handleAddBudget}
               onUpdateBudgetStatus={handleUpdateBudgetStatus}
+              onUpdateBudgetFields={handleUpdateBudgetFields}
               onDeleteBudget={handleDeleteBudget}
               onAddPayment={handleAddPayment}
               onUpdateProject={handleUpdateProject}

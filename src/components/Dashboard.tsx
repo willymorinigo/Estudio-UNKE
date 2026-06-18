@@ -118,17 +118,36 @@ export default function Dashboard({
       statusLabel = 'Pte. Aprobación';
     }
 
+    const billingDay = b.monthlyBillingDay;
+    let alertStatus: 'due_today' | 'upcoming' | 'recent_past' | 'none' = 'none';
+    let alertMessage = '';
+    
+    // Only throw billing due warnings if the monthly abono isApproved/active
+    if (statusLabel === 'Activo' && billingDay) {
+      const diff = billingDay - todayDay;
+      if (diff === 0) {
+        alertStatus = 'due_today';
+        alertMessage = `¡Se cobra HOY! (Día ${billingDay})`;
+      } else if (diff > 0 && diff <= 4) {
+        alertStatus = 'upcoming';
+        alertMessage = `Próximo: en ${diff} días`;
+      } else if (diff < 0 && diff >= -3) {
+        alertStatus = 'recent_past';
+        alertMessage = `Hace ${Math.abs(diff)} días (Día ${billingDay})`;
+      }
+    }
+
     return {
       id: `budget_${b.id}`,
       name: `Abono Mensual (${b.id})`,
       clientName: b.clientName,
       amount: b.total,
-      billingDay: undefined,
+      billingDay,
       status: statusLabel,
       itemType: 'budget' as const,
       targetId: b.id,
-      alertStatus: 'none' as const,
-      alertMessage: ''
+      alertStatus,
+      alertMessage
     };
   });
 

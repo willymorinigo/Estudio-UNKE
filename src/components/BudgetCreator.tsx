@@ -89,6 +89,7 @@ export default function BudgetCreator({
   const [budgetNotes, setBudgetNotes] = useState('');
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [isMonthly, setIsMonthly] = useState(false);
+  const [monthlyBillingDay, setMonthlyBillingDay] = useState('');
   const [draftItems, setDraftItems] = useState<BudgetItem[]>([]);
   
   // Quick item selector states
@@ -265,7 +266,8 @@ export default function BudgetCreator({
       paymentStatus: 'Pendiente',
       payments: [],
       estimatedDeliveryDate: estimatedDeliveryDate || undefined,
-      isMonthly: isMonthly
+      isMonthly: isMonthly,
+      monthlyBillingDay: isMonthly && monthlyBillingDay ? parseInt(monthlyBillingDay, 10) : undefined
     };
 
     onAddBudget(newBudget);
@@ -276,6 +278,7 @@ export default function BudgetCreator({
     setBudgetNotes('');
     setEstimatedDeliveryDate('');
     setIsMonthly(false);
+    setMonthlyBillingDay('');
     handleSetTab('history');
   };
 
@@ -286,9 +289,9 @@ export default function BudgetCreator({
     b.status.toLowerCase().includes(searchHistory.toLowerCase())
   );
 
-  const triggerPDFExport = (budget: Budget) => {
+  const triggerPDFExport = async (budget: Budget) => {
     const client = clients.find(c => c.id === budget.clientId);
-    exportBudgetToPDF(budget, client);
+    await exportBudgetToPDF(budget, client);
   };
 
   const activeDetailedBudget = detailedBudget ? (budgets.find(b => b.id === detailedBudget.id) || detailedBudget) : null;
@@ -667,28 +670,62 @@ export default function BudgetCreator({
                     <p className="text-[9px] text-gray-400 mt-1">Opcional. Se heredará al proyecto para avisar plazos y cuenta regresiva.</p>
                   </div>
 
-                  <div 
-                    className={`flex items-center gap-2.5 border rounded-xl p-3 select-none cursor-pointer transition ${
-                      isMonthly 
-                        ? 'bg-teal-50/50 border-teal-200 text-teal-950' 
-                        : 'bg-white border-slate-200 hover:border-slate-300 text-gray-850'
-                    }`}
-                    onClick={() => setIsMonthly(!isMonthly)}
-                  >
-                    <input
-                      type="checkbox"
-                      id="isMonthlyCheckbox"
-                      checked={isMonthly}
-                      onChange={(e) => setIsMonthly(e.target.checked)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-3.5 h-3.5 rounded text-[#34877c] border-slate-300 focus:ring-[#34877c] cursor-pointer"
-                    />
-                    <div className="text-left leading-normal">
-                      <label htmlFor="isMonthlyCheckbox" className="block text-[11px] font-bold text-gray-800 cursor-pointer">
-                        Presupuesto Mensual / Abono
-                      </label>
-                      <span className="block text-[9px] text-gray-450 font-medium">Marcá si es un servicio recurrente cobrado mensualmente.</span>
+                  <div className="space-y-2">
+                    <div 
+                      className={`flex items-center gap-2.5 border rounded-xl p-3 select-none cursor-pointer transition ${
+                        isMonthly 
+                          ? 'bg-teal-50/50 border-teal-200 text-teal-950' 
+                          : 'bg-white border-slate-200 hover:border-slate-300 text-gray-850'
+                      }`}
+                      onClick={() => setIsMonthly(!isMonthly)}
+                    >
+                      <input
+                        type="checkbox"
+                        id="isMonthlyCheckbox"
+                        checked={isMonthly}
+                        onChange={(e) => setIsMonthly(e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-3.5 h-3.5 rounded text-[#34877c] border-slate-300 focus:ring-[#34877c] cursor-pointer"
+                      />
+                      <div className="text-left leading-normal">
+                        <label htmlFor="isMonthlyCheckbox" className="block text-[11px] font-bold text-gray-800 cursor-pointer">
+                          Presupuesto Mensual / Abono
+                        </label>
+                        <span className="block text-[9px] text-gray-450 font-medium">Marcá si es un servicio recurrente cobrado mensualmente.</span>
+                      </div>
                     </div>
+
+                    {isMonthly && (
+                      <div className="bg-teal-50/30 border border-teal-100 rounded-xl p-3 space-y-2 animate-fadeIn">
+                        <label className="block text-[10px] uppercase font-bold text-teal-800 mb-1">
+                          Día de Cobro / Vencimiento
+                        </label>
+                        <div className="flex gap-2.5">
+                          <input
+                            type="number"
+                            min="1"
+                            max="31"
+                            placeholder="Ej. 10"
+                            value={monthlyBillingDay}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setMonthlyBillingDay('');
+                              } else {
+                                const num = parseInt(val, 10);
+                                if (!isNaN(num) && num >= 1 && num <= 31) {
+                                  setMonthlyBillingDay(String(num));
+                                }
+                              }
+                            }}
+                            className="w-24 bg-white border border-slate-200 rounded-lg p-2 text-xs text-gray-800 focus:outline-[#34877c] focus:ring-1 focus:ring-[#34877c]"
+                          />
+                          <p className="text-[10px] text-gray-500 self-center leading-normal">
+                            Día del mes en que vence o se cobra el abono (1 al 31).
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -821,7 +858,7 @@ export default function BudgetCreator({
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {budget.isMonthly && (
                               <span className="text-[8px] bg-teal-100 text-teal-800 border border-teal-200 font-extrabold px-1.5 py-0.5 rounded-full uppercase">
-                                🔁 Abono Mensual
+                                🔁 Abono {budget.monthlyBillingDay ? `(Día ${budget.monthlyBillingDay})` : 'Mensual'}
                               </span>
                             )}
                             {budget.createdBy && (
@@ -977,10 +1014,15 @@ export default function BudgetCreator({
                     </div>
                   )}
                   {activeDetailedBudget.isMonthly && (
-                    <div className="mt-1">
+                    <div className="mt-1 flex flex-wrap gap-1">
                       <span className="inline-flex items-center gap-1 bg-teal-50 text-teal-800 border border-teal-150 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">
                         🔁 Abono Mensual
                       </span>
+                      {activeDetailedBudget.monthlyBillingDay && (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-150 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">
+                          📆 Cobro: Día {activeDetailedBudget.monthlyBillingDay}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

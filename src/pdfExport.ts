@@ -42,7 +42,48 @@ function cleanText(text: string): string {
     .replace(/[üÜ]/g, 'u');
 }
 
-export function exportBudgetToPDF(budget: Budget, client?: Client) {
+// Render SVG path to PNG Base64 for clean PDF visualization
+export function renderSvgToPng(svgString: string, width: number, height: number): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          // Scale by 4 for crystal clear printing resolution
+          canvas.width = width * 4;
+          canvas.height = height * 4;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(4, 4);
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/png');
+            URL.revokeObjectURL(url);
+            resolve(dataUrl);
+          } else {
+            URL.revokeObjectURL(url);
+            resolve('');
+          }
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          resolve('');
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve('');
+      };
+      img.src = url;
+    } catch (error) {
+      resolve('');
+    }
+  });
+}
+
+export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   // Create instance of jsPDF (A4 size, portrait, millimeters)
   const doc = new jsPDF({
     orientation: 'p',
@@ -62,26 +103,28 @@ export function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.rect(0, 0, 210, 15, 'F');
 
   // --- BRANDING SECTION ---
-  // Stylized UNKE vector logo
   const logoX = 20;
-  const logoY = 24;
-  
-  doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  // Outer circular/square speech bubble shape
-  doc.ellipse(logoX + 4.5, logoY + 4.5, 4.5, 4.5, 'F');
-  doc.rect(logoX + 4.5, logoY + 4.5, 4.5, 4.5, 'F');
+  const logoY = 22.5;
+  const logoWidth = 10;
+  const logoHeight = 9.5;
 
-  // Inner white U-shape representation
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(1.0);
-  // Left vertical bar of U
-  doc.line(logoX + 2.8, logoY + 2.5, logoX + 2.8, logoY + 5.5);
-  // Right vertical bar of U
-  doc.line(logoX + 6.2, logoY + 2.5, logoX + 6.2, logoY + 5.5);
-  // U rounding connection at the bottom
-  doc.line(logoX + 2.8, logoY + 5.5, logoX + 2.8, logoY + 6.8);
-  doc.line(logoX + 6.2, logoY + 5.5, logoX + 6.2, logoY + 6.8);
-  doc.line(logoX + 2.8, logoY + 6.8, logoX + 6.2, logoY + 6.8);
+  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 236.63 224.5"><path fill="#34877c" d="M191.27,39.31C150.98-.97,85.66-.97,45.38,39.31c-40.29,40.29-40.29,105.6,0,145.89,37.46,37.46,96.55,40.07,137.05,7.86h16.7v-16.71c32.21-40.5,29.6-99.59-7.86-137.05ZM73.8,138.53c-4.61,4.61-10.28,6.88-16.74,6.88s-12.05-2.27-16.66-6.88c-4.61-4.61-6.88-10.28-6.88-16.73v-33.11h9.43v33.11c0,3.9,1.35,7.23,4.04,9.93,2.77,2.83,6.17,4.18,10.07,4.18s7.23-1.41,10-4.18c2.77-2.77,4.25-6.1,4.25-9.93h.02l8.27,7.44c-1.11,3.44-3.02,6.55-5.81,9.3ZM118.32,145.27v.14l-47.15-42.39v-14.32l37.72,33.96v-33.96h9.43v56.57ZM161.83,145.41h-13.33l-24.53-24.39-3.97-3.9,3.97-3.97,24.53-24.46h13.33l-28.36,28.36,28.36,28.36ZM201.38,145.41h-37.79v-9.5h37.79v9.5ZM201.38,121.8h-37.79v-9.43h37.79v9.43ZM163.59,98.19v-9.5h37.79v9.5h-37.79Z"/></svg>`;
+
+  try {
+    const pngDataUrl = await renderSvgToPng(svgString, 236.63, 224.5);
+    if (pngDataUrl) {
+      doc.addImage(pngDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    } else {
+      throw new Error("Canvas render produced empty result");
+    }
+  } catch (err) {
+    console.warn("Fallback to basic vector drawing", err);
+    // Draw pretty circular medallion fallback
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.ellipse(logoX + 4.75, logoY + 4.75, 4.75, 4.75, 'F');
+    doc.setFillColor(255, 255, 255);
+    doc.ellipse(logoX + 4.75, logoY + 4.75, 2.2, 2.2, 'F');
+  }
 
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(22);

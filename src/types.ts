@@ -82,6 +82,7 @@ export interface Budget {
   updatedAt?: string;
   estimatedDeliveryDate?: string;
   isMonthly?: boolean;
+  monthlyBillingDay?: number;
 }
 
 export type ProjectStatus = 'Planificado' | 'En Progreso' | 'En Revision' | 'Completado' | 'Pausado';

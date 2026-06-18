@@ -11,6 +11,28 @@ import {
   TrendingUp, PiggyBank, Clock, ClipboardList, RefreshCw, Star, Calendar 
 } from 'lucide-react';
 
+function getNextBillingDate(billingDay: number | undefined | null): string {
+  if (!billingDay) return 'No especificado';
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-based index
+  const currentDate = today.getDate();
+
+  // Create Date object for billingDay of this month
+  let nextBilling = new Date(currentYear, currentMonth, billingDay);
+
+  // If today has already passed the billing day, the next billing belongs to the next month
+  if (currentDate > billingDay) {
+    nextBilling = new Date(currentYear, currentMonth + 1, billingDay);
+  }
+
+  const day = String(nextBilling.getDate()).padStart(2, '0');
+  const month = String(nextBilling.getMonth() + 1).padStart(2, '0');
+  const year = nextBilling.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
 interface DashboardProps {
   clients: Client[];
   budgets: Budget[];
@@ -404,6 +426,18 @@ export default function Dashboard({
                     <div className="space-y-0.5 min-w-0 text-left">
                       <p className="font-extrabold text-[11px] text-gray-800 truncate">{item.name}</p>
                       <p className="text-[10px] text-gray-450 font-bold truncate">Cliente: {item.clientName}</p>
+                      {item.billingDay ? (
+                        <p className="text-[9.5px] text-[#2c736a] font-bold flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                          <span>📅 Próx. Cobro:</span> 
+                          <span className="font-mono bg-emerald-50 px-1 rounded text-[#245e57] font-semibold">
+                            {getNextBillingDate(item.billingDay)}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-[9.5px] text-gray-400 font-medium mt-0.5 whitespace-nowrap">
+                          ⚠️ Sin día de cobro asignado
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end shrink-0 gap-0.5">
                       {statusBadge}

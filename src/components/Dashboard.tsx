@@ -33,6 +33,121 @@ function getNextBillingDate(billingDay: number | undefined | null): string {
   return `${day}/${month}/${year}`;
 }
 
+function getMonthlyBillingAlert(billingDay: number | undefined | null, status: string) {
+  if (!billingDay || status !== 'Activo') {
+    return {
+      alertStatus: 'none',
+      alertMessage: '',
+      cardBorder: "border-slate-100 bg-white",
+      badgeClass: status === 'Borrador' ? "bg-slate-100 text-slate-700 border-slate-200" : "bg-amber-50 text-amber-800 border-amber-200",
+      badgeText: status === 'Borrador' ? '📝 Borrador' : '⏳ Pte. Aprobación'
+    };
+  }
+
+  const today = new Date();
+  const todayDay = today.getDate();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+
+  // Create date for this month's billing day
+  const thisMonthBilling = new Date(currentYear, currentMonth, billingDay);
+  
+  // Calculate relative difference in this month
+  const diff = billingDay - todayDay;
+
+  // Let's find the exact NEXT billing date
+  let nextBillingDate = new Date(currentYear, currentMonth, billingDay);
+  if (todayDay > billingDay) {
+    nextBillingDate = new Date(currentYear, currentMonth + 1, billingDay);
+  }
+  const todayMidnight = new Date(currentYear, currentMonth, todayDay);
+  const diffTime = nextBillingDate.getTime() - todayMidnight.getTime();
+  const daysUntilNext = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  const formatDate = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}`;
+  };
+
+  // Case 1: Billing is TODAY
+  if (diff === 0) {
+    return {
+      alertStatus: 'due_today',
+      alertMessage: `¡Se cobra HOY! (Día ${billingDay})`,
+      cardBorder: "border-rose-500 bg-rose-50/20 shadow-xs ring-1 ring-rose-500/10",
+      badgeClass: "bg-red-500 text-white border-red-600 font-extrabold animate-pulse shadow-2xs",
+      badgeText: `🔥 ¡COBRAR HOY! (Día ${billingDay})`
+    };
+  }
+
+  // Case 2: Billing was RECENTLY past within the last 4 days (Highly critical because they need to claim it!)
+  // If diff is between -1 and -4, it means it happened 1 to 4 days ago in this calendar month
+  if (diff < 0 && diff >= -4) {
+    const absDiff = Math.abs(diff);
+    return {
+      alertStatus: 'recent_past',
+      alertMessage: `¡HACE ${absDiff} DÍAS! Reclamar cobro (Día ${billingDay})`,
+      cardBorder: "border-orange-500 bg-orange-50/10 shadow-xs ring-1 ring-orange-500/10",
+      badgeClass: "bg-orange-600 text-white border-orange-700 font-black animate-pulse px-2 py-0.5",
+      badgeText: `🚨 ¡RECLAMAR! Hace ${absDiff} d. (${formatDate(thisMonthBilling)})`
+    };
+  }
+
+  // Case 3: Tomorrow (1 day remaining) - Imminent warning
+  if (daysUntilNext === 1) {
+    return {
+      alertStatus: 'imminent',
+      alertMessage: `¡Mañana se cobra! (Día ${billingDay})`,
+      cardBorder: "border-rose-450 bg-rose-50/10 shadow-xs",
+      badgeClass: "bg-rose-100 text-rose-800 border-rose-300 font-extrabold animate-pulse",
+      badgeText: `⚠️ MAÑANA (${formatDate(nextBillingDate)})`
+    };
+  }
+
+  // Case 4: 2 to 3 days remaining - Very close progress
+  if (daysUntilNext >= 2 && daysUntilNext <= 3) {
+    return {
+      alertStatus: 'upcoming_close',
+      alertMessage: `Próximo: en ${daysUntilNext} días (Día ${billingDay})`,
+      cardBorder: "border-amber-400 bg-amber-50/20 shadow-2xs",
+      badgeClass: "bg-amber-100 text-amber-950 border-amber-350 font-extrabold",
+      badgeText: `⏰ En ${daysUntilNext} d. (${formatDate(nextBillingDate)})`
+    };
+  }
+
+  // Case 5: 4 to 6 days remaining - Warming up
+  if (daysUntilNext >= 4 && daysUntilNext <= 6) {
+    return {
+      alertStatus: 'upcoming_near',
+      alertMessage: `Próximo: en ${daysUntilNext} días (Día ${billingDay})`,
+      cardBorder: "border-amber-200/90 bg-amber-50/10",
+      badgeClass: "bg-amber-50 text-amber-800 border-amber-200 font-bold",
+      badgeText: `📅 En ${daysUntilNext} días`
+    };
+  }
+
+  // Case 6: 7 to 10 days remaining
+  if (daysUntilNext >= 7 && daysUntilNext <= 10) {
+    return {
+      alertStatus: 'upcoming_mid',
+      alertMessage: `En ${daysUntilNext} días (Día ${billingDay})`,
+      cardBorder: "border-slate-200 bg-emerald-50/5",
+      badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-150 font-semibold",
+      badgeText: `⏳ En ${daysUntilNext} d.`
+    };
+  }
+
+  // Case 7: Far away (older than 10 days)
+  return {
+    alertStatus: 'upcoming_far',
+    alertMessage: `En ${daysUntilNext} días (${formatDate(nextBillingDate)})`,
+    cardBorder: "border-slate-100 bg-white",
+    badgeClass: "bg-slate-50 text-slate-600 border-slate-200 font-semibold",
+    badgeText: `⚙️ Día ${billingDay} (En ${daysUntilNext} d.)`
+  };
+}
+
 interface DashboardProps {
   clients: Client[];
   budgets: Budget[];
@@ -97,23 +212,8 @@ export default function Dashboard({
       .filter(t => t.isMaintenance)
       .map(t => {
         const billingDay = t.monthlyBillingDay;
-        let alertStatus: 'due_today' | 'upcoming' | 'recent_past' | 'none' = 'none';
-        let alertMessage = '';
+        const alertInfo = getMonthlyBillingAlert(billingDay, 'Activo');
         
-        if (billingDay) {
-          const diff = billingDay - todayDay;
-          if (diff === 0) {
-            alertStatus = 'due_today';
-            alertMessage = `¡Se cobra HOY! (Día ${billingDay})`;
-          } else if (diff > 0 && diff <= 4) {
-            alertStatus = 'upcoming';
-            alertMessage = `Próximo: en ${diff} días`;
-          } else if (diff < 0 && diff >= -3) {
-            alertStatus = 'recent_past';
-            alertMessage = `Hace ${Math.abs(diff)} días (Día ${billingDay})`;
-          }
-        }
-
         return {
           id: `task_${p.id}_${t.id}`,
           name: t.name,
@@ -123,8 +223,11 @@ export default function Dashboard({
           status: 'Activo' as const,
           itemType: 'task' as const,
           targetId: p.id,
-          alertStatus,
-          alertMessage
+          alertStatus: alertInfo.alertStatus,
+          alertMessage: alertInfo.alertMessage,
+          cardBorder: alertInfo.cardBorder,
+          badgeClass: alertInfo.badgeClass,
+          badgeText: alertInfo.badgeText
         };
       })
   );
@@ -141,23 +244,7 @@ export default function Dashboard({
     }
 
     const billingDay = b.monthlyBillingDay;
-    let alertStatus: 'due_today' | 'upcoming' | 'recent_past' | 'none' = 'none';
-    let alertMessage = '';
-    
-    // Only throw billing due warnings if the monthly abono isApproved/active
-    if (statusLabel === 'Activo' && billingDay) {
-      const diff = billingDay - todayDay;
-      if (diff === 0) {
-        alertStatus = 'due_today';
-        alertMessage = `¡Se cobra HOY! (Día ${billingDay})`;
-      } else if (diff > 0 && diff <= 4) {
-        alertStatus = 'upcoming';
-        alertMessage = `Próximo: en ${diff} días`;
-      } else if (diff < 0 && diff >= -3) {
-        alertStatus = 'recent_past';
-        alertMessage = `Hace ${Math.abs(diff)} días (Día ${billingDay})`;
-      }
-    }
+    const alertInfo = getMonthlyBillingAlert(billingDay, statusLabel);
 
     return {
       id: `budget_${b.id}`,
@@ -168,8 +255,11 @@ export default function Dashboard({
       status: statusLabel,
       itemType: 'budget' as const,
       targetId: b.id,
-      alertStatus,
-      alertMessage
+      alertStatus: alertInfo.alertStatus,
+      alertMessage: alertInfo.alertMessage,
+      cardBorder: alertInfo.cardBorder,
+      badgeClass: alertInfo.badgeClass,
+      badgeText: alertInfo.badgeText
     };
   });
 
@@ -219,8 +309,12 @@ export default function Dashboard({
     const getAlertPriority = (status: string) => {
       if (status === 'due_today') return 0;
       if (status === 'recent_past') return 1;
-      if (status === 'upcoming') return 2;
-      return 3;
+      if (status === 'imminent') return 2;
+      if (status === 'upcoming_close') return 3;
+      if (status === 'upcoming_near') return 4;
+      if (status === 'upcoming_mid') return 5;
+      if (status === 'upcoming_far') return 6;
+      return 7;
     };
     const prioA = getAlertPriority(a.alertStatus);
     const prioB = getAlertPriority(b.alertStatus);
@@ -360,60 +454,21 @@ export default function Dashboard({
           
           {sortedAbonos.length > 0 ? (
             <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-              {sortedAbonos.some(item => item.alertStatus !== 'none') && (
-                <p className="text-[9px] uppercase font-extrabold tracking-wider text-rose-500 font-sans mb-1.5">⚠️ Pagos con Vencimientos Activos:</p>
+              {sortedAbonos.some(item => ['due_today', 'recent_past', 'imminent', 'upcoming_close', 'upcoming_near'].includes(item.alertStatus)) && (
+                <p className="text-[9px] uppercase font-black tracking-wider text-rose-500 font-sans mb-1.5 animate-pulse">⚠️ ALERTA: PRÓXIMOS COBROS Y VENCIDOS:</p>
               )}
               {sortedAbonos.map((item) => {
-                let cardBorder = "border-slate-100";
-                let statusBadge = null;
-
-                if (item.alertStatus === 'due_today') {
-                  cardBorder = "border-emerald-355 bg-emerald-50/20";
-                  statusBadge = (
-                    <span className="text-[9px] px-2 py-0.5 rounded-lg border font-black animate-pulse bg-emerald-150 text-emerald-950 border-emerald-355">
-                      {item.alertMessage}
-                    </span>
-                  );
-                } else if (item.alertStatus === 'recent_past') {
-                  cardBorder = "border-amber-255 bg-amber-50/10";
-                  statusBadge = (
-                    <span className="text-[9px] px-2 py-0.5 rounded-lg border font-bold bg-amber-100 text-amber-900 border-amber-255">
-                      {item.alertMessage}
-                    </span>
-                  );
-                } else if (item.alertStatus === 'upcoming') {
-                  cardBorder = "border-emerald-155 bg-emerald-50/10";
-                  statusBadge = (
-                    <span className="text-[9px] px-2 py-0.5 rounded-lg border font-black bg-emerald-50 text-emerald-850 border-emerald-155">
-                      {item.alertMessage}
-                    </span>
-                  );
-                } else {
-                  if (item.status === 'Activo') {
-                    statusBadge = (
-                      <span className="text-[9px] px-2 py-0.5 rounded-lg border font-extrabold bg-emerald-50 text-emerald-800 border-emerald-150 uppercase">
-                        ⚙️ Activo {item.billingDay ? `(Día ${item.billingDay})` : ''}
-                      </span>
-                    );
-                  } else if (item.status === 'Pte. Aprobación') {
-                    statusBadge = (
-                      <span className="text-[9px] px-2 py-0.5 rounded-lg border font-bold bg-amber-50 text-amber-800 border-amber-200 uppercase">
-                        ⏳ Pte. Aprobación
-                      </span>
-                    );
-                  } else if (item.status === 'Borrador') {
-                    statusBadge = (
-                      <span className="text-[9px] px-2 py-0.5 rounded-lg border font-bold bg-slate-100 text-slate-700 border-slate-200 uppercase">
-                        📝 Borrador
-                      </span>
-                    );
-                  }
-                }
+                const cardBorder = item.cardBorder || "border-slate-100 bg-white";
+                const statusBadge = (
+                  <span className={`text-[9.5px] px-2 py-0.5 rounded-lg border font-bold uppercase tracking-wide shrink-0 ${item.badgeClass}`}>
+                    {item.badgeText}
+                  </span>
+                );
 
                 return (
                   <div 
                     key={item.id}
-                    className={`p-2.5 px-3 bg-white hover:bg-slate-50 rounded-xl border flex items-center justify-between transition gap-4 cursor-pointer ${cardBorder}`}
+                    className={`p-2.5 px-3 bg-white hover:bg-slate-50 border rounded-xl flex items-center justify-between transition gap-4 cursor-pointer ${cardBorder}`}
                     onClick={() => {
                       if (item.itemType === 'budget') {
                         onNavigate('budgets', item.targetId);

@@ -1000,13 +1000,15 @@ export const INITIAL_PROJECTS: Project[] = [
     budgetId: 'PP-2026-001',
     status: 'En Progreso',
     startDate: '2026-02-15',
+    estimatedDeliveryDate: '2026-06-25',
     tasks: [
       { id: 't_1', name: 'Definir brief de marca y reunión de kickoff', completed: true },
       { id: 't_2', name: 'Presentación de propuestas de logotipo', completed: true },
       { id: 't_3', name: 'Redactar manual de marca e identidad gráfica', completed: true },
       { id: 't_4', name: 'Esquematizar wireframe de la landing page', completed: true },
       { id: 't_5', name: 'Desarrollo interactivo y carga estética local', completed: false },
-      { id: 't_6', name: 'Revisión final con Sofía y lanzamiento online', completed: false }
+      { id: 't_6', name: 'Revisión final con Sofía y lanzamiento online', completed: false },
+      { id: 't_maint_1', name: 'Mantenimiento Mensual del Servidor y Landing', completed: false, isMaintenance: true, monthlyBillingDay: 22, monthlyBillingAmount: 120000 }
     ],
     pieces: [
       { id: 'pc_id_1', name: 'Nueva Identidad Corporativa', price: 1160200, quantity: 1, subtotal: 1160200 },
@@ -1045,13 +1047,14 @@ export const INITIAL_PROJECTS: Project[] = [
     budgetId: 'PP-2026-003',
     status: 'En Progreso',
     startDate: '2026-04-20',
+    estimatedDeliveryDate: '2026-06-18',
     tasks: [
       { id: 't_31', name: 'Definir estética visual, tipografías e iconografía', completed: true },
       { id: 't_32', name: 'Generación de la grilla de contenido del mes 1', completed: true },
       { id: 't_33', name: 'Diseño de piezas gráficas y carruseles del mes 1', completed: true },
       { id: 't_34', name: 'Redactar pies de foto y preparar hashtags sugeridos', completed: true },
       { id: 't_35', name: 'Planificar grilla del mes 2 (Junio) en curso', completed: false },
-      { id: 't_36', name: 'Sugerencia de reels semanales con audio en tendencia', completed: false }
+      { id: 't_36', name: 'Gestión mensual de contenidos para Instagram', completed: false, isMaintenance: true, monthlyBillingDay: 18, monthlyBillingAmount: 320000 }
     ],
     pieces: [
       { id: 'pc_cm_6', name: 'Administración/Gestión estándar de RRSS', price: 268600, quantity: 2, subtotal: 537200 }

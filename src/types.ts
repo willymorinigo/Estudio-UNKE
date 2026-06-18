@@ -80,6 +80,8 @@ export interface Budget {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string;
+  estimatedDeliveryDate?: string;
+  isMonthly?: boolean;
 }
 
 export type ProjectStatus = 'Planificado' | 'En Progreso' | 'En Revision' | 'Completado' | 'Pausado';
@@ -89,6 +91,9 @@ export interface ProjectTask {
   name: string;
   completed: boolean;
   dueDate?: string;
+  isMaintenance?: boolean;
+  monthlyBillingDay?: number;
+  monthlyBillingAmount?: number;
 }
 
 export interface Project {
@@ -106,4 +111,5 @@ export interface Project {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string;
+  estimatedDeliveryDate?: string;
 }

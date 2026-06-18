@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Client, DesignPiece, BudgetItem, Budget, BudgetStatus, Project, Payment, ProjectStatus } from '../types';
-import { exportBudgetToPDF, formatCurrency } from '../pdfExport';
+import { exportBudgetToPDF, formatCurrency, formatDateDMY } from '../pdfExport';
 import { 
   FileText, Plus, Trash2, CheckCircle, Search, 
   ExternalLink, ArrowRight, Download, Eye, AlertCircle, RefreshCw, Sparkles,
@@ -24,6 +24,9 @@ interface BudgetCreatorProps {
   onUpdateProject?: (project: Project) => void;
   initialTab?: 'create' | 'history';
   onTabChange?: (tab: 'create' | 'history') => void;
+  initiallySelectedBudgetId?: string | null;
+  onClearInitiallySelectedBudget?: () => void;
+  onNavigateToProject?: (projectId: string) => void;
 }
 
 export default function BudgetCreator({
@@ -37,16 +40,33 @@ export default function BudgetCreator({
   onAddPayment,
   onUpdateProject,
   initialTab = 'create',
-  onTabChange
+  onTabChange,
+  initiallySelectedBudgetId,
+  onClearInitiallySelectedBudget,
+  onNavigateToProject
 }: BudgetCreatorProps) {
   // Navigation & Lists
   const [activeTab, setActiveTab] = useState<'create' | 'history'>(initialTab);
   const [searchHistory, setSearchHistory] = useState('');
 
   // Sync activeTab if initialTab changes
-  React.useEffect(() => {
+  useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  // Deep-linking effect for budgets
+  useEffect(() => {
+    if (initiallySelectedBudgetId) {
+      const found = budgets.find(b => b.id === initiallySelectedBudgetId);
+      if (found) {
+        setDetailedBudget(found);
+        setActiveTab('history');
+      }
+      if (onClearInitiallySelectedBudget) {
+        onClearInitiallySelectedBudget();
+      }
+    }
+  }, [initiallySelectedBudgetId, budgets, onClearInitiallySelectedBudget]);
 
   const handleSetTab = (tab: 'create' | 'history') => {
     setActiveTab(tab);
@@ -67,6 +87,8 @@ export default function BudgetCreator({
   const [selectedCategory, setSelectedCategory] = useState<'A' | 'B' | 'C'>('B');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [budgetNotes, setBudgetNotes] = useState('');
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
+  const [isMonthly, setIsMonthly] = useState(false);
   const [draftItems, setDraftItems] = useState<BudgetItem[]>([]);
   
   // Quick item selector states
@@ -213,10 +235,23 @@ export default function BudgetCreator({
     const client = clients.find(c => c.id === selectedClientId);
     if (!client) return;
 
-    // Calculate dynamic sequential ID
+    // Calculate dynamic sequential ID (protect against collsions)
     const year = new Date().getFullYear();
-    const countOfYear = budgets.length + 1;
-    const formattedId = `PP-${year}-${String(countOfYear).padStart(3, '0')}`;
+    const yearPrefix = `PP-${year}-`;
+    const yearBudgets = budgets.filter(b => b.id.startsWith(yearPrefix));
+    let nextNum = 1;
+    if (yearBudgets.length > 0) {
+      const nums = yearBudgets.map(b => {
+        const parts = b.id.split('-');
+        const lastPart = parts[parts.length - 1];
+        const parsed = parseInt(lastPart, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      });
+      nextNum = Math.max(...nums, 0) + 1;
+    } else {
+      nextNum = budgets.length + 1;
+    }
+    const formattedId = `PP-${year}-${String(nextNum).padStart(3, '0')}`;
 
     const newBudget: Budget = {
       id: formattedId,
@@ -228,7 +263,9 @@ export default function BudgetCreator({
       notes: budgetNotes,
       status: 'Borrador',
       paymentStatus: 'Pendiente',
-      payments: []
+      payments: [],
+      estimatedDeliveryDate: estimatedDeliveryDate || undefined,
+      isMonthly: isMonthly
     };
 
     onAddBudget(newBudget);
@@ -237,6 +274,8 @@ export default function BudgetCreator({
     setDraftItems([]);
     setSelectedClientId('');
     setBudgetNotes('');
+    setEstimatedDeliveryDate('');
+    setIsMonthly(false);
     handleSetTab('history');
   };
 
@@ -611,8 +650,46 @@ export default function BudgetCreator({
                     value={budgetNotes}
                     onChange={e => setBudgetNotes(e.target.value)}
                     placeholder="Condiciones de pago, plazo estimado del proyecto, seña requerida o algún comentario de servicio..."
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-gray-800 focus:outline-none"
+                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-gray-800 focus:outline-none placeholder:text-gray-400"
                   />
+                </div>
+
+                {/* Fecha Tentativa de Entrega & Opción Mensual */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Fecha Tentativa de Entrega</label>
+                    <input
+                      type="date"
+                      value={estimatedDeliveryDate}
+                      onChange={e => setEstimatedDeliveryDate(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-gray-800 focus:outline-none"
+                    />
+                    <p className="text-[9px] text-gray-400 mt-1">Opcional. Se heredará al proyecto para avisar plazos y cuenta regresiva.</p>
+                  </div>
+
+                  <div 
+                    className={`flex items-center gap-2.5 border rounded-xl p-3 select-none cursor-pointer transition ${
+                      isMonthly 
+                        ? 'bg-teal-50/50 border-teal-200 text-teal-950' 
+                        : 'bg-white border-slate-200 hover:border-slate-300 text-gray-850'
+                    }`}
+                    onClick={() => setIsMonthly(!isMonthly)}
+                  >
+                    <input
+                      type="checkbox"
+                      id="isMonthlyCheckbox"
+                      checked={isMonthly}
+                      onChange={(e) => setIsMonthly(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-3.5 h-3.5 rounded text-[#34877c] border-slate-300 focus:ring-[#34877c] cursor-pointer"
+                    />
+                    <div className="text-left leading-normal">
+                      <label htmlFor="isMonthlyCheckbox" className="block text-[11px] font-bold text-gray-800 cursor-pointer">
+                        Presupuesto Mensual / Abono
+                      </label>
+                      <span className="block text-[9px] text-gray-450 font-medium">Marcá si es un servicio recurrente cobrado mensualmente.</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Totals readout */}
@@ -733,7 +810,7 @@ export default function BudgetCreator({
                           className="p-3 font-mono text-gray-500 cursor-pointer"
                           title="Haga clic para ver el detalle de este presupuesto"
                         >
-                          {budget.date}
+                          {formatDateDMY(budget.date)}
                         </td>
                         <td 
                           onClick={() => setDetailedBudget(budget)}
@@ -742,6 +819,11 @@ export default function BudgetCreator({
                         >
                           <p className="font-semibold text-gray-950 hover:text-[#34877c] transition-colors">{budget.clientName}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
+                            {budget.isMonthly && (
+                              <span className="text-[8px] bg-teal-100 text-teal-800 border border-teal-200 font-extrabold px-1.5 py-0.5 rounded-full uppercase">
+                                🔁 Abono Mensual
+                              </span>
+                            )}
                             {budget.createdBy && (
                               <span className="text-[8px] bg-slate-100 text-gray-600 font-extrabold px-1.5 py-0.5 rounded-full uppercase">
                                 🧑‍💻 {budget.createdBy}
@@ -886,7 +968,21 @@ export default function BudgetCreator({
                 <div>
                   <span className="text-[10px] font-semibold text-gray-400 uppercase block">Cliente</span>
                   <p className="font-bold text-gray-800 text-sm mt-0.5">{activeDetailedBudget.clientName}</p>
-                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">Emisión: {activeDetailedBudget.date}</p>
+                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">Emisión: {formatDateDMY(activeDetailedBudget.date)}</p>
+                  {activeDetailedBudget.estimatedDeliveryDate && (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-150 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                        📅 Entrega: {formatDateDMY(activeDetailedBudget.estimatedDeliveryDate)}
+                      </span>
+                    </div>
+                  )}
+                  {activeDetailedBudget.isMonthly && (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center gap-1 bg-teal-50 text-teal-800 border border-teal-150 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">
+                        🔁 Abono Mensual
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-[10px] font-semibold text-gray-400 uppercase block">Estado Comercial</span>
@@ -967,11 +1063,18 @@ export default function BudgetCreator({
                   <div className="bg-slate-50/80 p-4 border border-slate-100 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1 flex-grow">
                       <p className="font-semibold text-gray-800">
-                        Proyecto en curso: <span className="text-[#34877c]">{linkedProject.name}</span>
+                        Proyecto en curso: <span 
+                          onClick={() => onNavigateToProject && onNavigateToProject(linkedProject.id)}
+                          className="text-[#34877c] hover:underline cursor-pointer inline-flex items-center gap-1 font-extrabold pr-1"
+                          title="Click para navegar directamente a la carpeta de producción de este proyecto"
+                        >
+                          {linkedProject.name}
+                          <ExternalLink className="w-3.5 h-3.5 inline text-[#34877c] shrink-0" />
+                        </span>
                       </p>
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mt-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>Fecha de inicio: {linkedProject.startDate}</span>
+                        <span>Fecha de inicio: {formatDateDMY(linkedProject.startDate)}</span>
                         <span>•</span>
                         <span>
                           Checklist: {linkedProject.tasks.filter(t => t.completed).length}/{linkedProject.tasks.length} completado
@@ -1129,7 +1232,7 @@ export default function BudgetCreator({
                         return (
                           <div key={p.id} className="p-2.5 hover:bg-slate-50/50 flex justify-between items-center text-xs">
                             <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-3 text-slate-500">
-                              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-bold">{p.date}</span>
+                              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-bold">{formatDateDMY(p.date)}</span>
                               <span className="font-medium text-slate-700">{p.method}</span>
                               {p.notes && <span className="italic">"{p.notes}"</span>}
                             </div>
@@ -1148,7 +1251,7 @@ export default function BudgetCreator({
             {/* Modal Footer */}
             <div className="bg-slate-50 border-t border-slate-100 px-6 py-4 flex justify-between items-center z-10 text-[11px]">
               <span className="text-gray-400 italic">
-                Última edición técnica: {activeDetailedBudget.updatedAt ? new Date(activeDetailedBudget.updatedAt).toLocaleDateString() : 'Desconocida'}
+                Última edición técnica: {activeDetailedBudget.updatedAt ? formatDateDMY(activeDetailedBudget.updatedAt.split('T')[0]) : 'Desconocida'}
               </span>
               <div className="flex gap-2">
                 <button

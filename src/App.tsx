@@ -62,6 +62,10 @@ export default function App() {
   const [budgetTabMode, setBudgetTabMode] = useState<'create' | 'history'>('create');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Cross-navigation direct linking targets
+  const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
+  const [targetBudgetId, setTargetBudgetId] = useState<string | null>(null);
+
   const navigateToBudgets = (subTab: 'create' | 'history') => {
     setIsMobileMenuOpen(false);
     setBudgetTabMode(subTab);
@@ -345,7 +349,8 @@ export default function App() {
       pieces: budget.items,
       createdBy: 'Sistema ' + activePartner,
       updatedBy: activePartner,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      estimatedDeliveryDate: budget.estimatedDeliveryDate
     };
 
     await saveDocument('projects', newProject.id, newProject);
@@ -705,8 +710,14 @@ export default function App() {
               budgets={budgets}
               projects={projects}
               onReset={handleReset}
-              onNavigate={(tab) => {
+              onNavigate={(tab, subId) => {
                 setActiveTab(tab);
+                if (tab === 'projects' && subId) {
+                  setTargetProjectId(subId);
+                } else if (tab === 'budgets' && subId) {
+                  setTargetBudgetId(subId);
+                  setBudgetTabMode('history');
+                }
               }}
             />
           )}
@@ -719,6 +730,11 @@ export default function App() {
               onUpdateClient={handleUpdateClient}
               onDeleteClient={handleDeleteClient}
               onAddPayment={handleAddPayment}
+              onNavigateToBudget={(budgetId) => {
+                setTargetBudgetId(budgetId);
+                setBudgetTabMode('history');
+                setActiveTab('budgets');
+              }}
             />
           )}
 
@@ -735,6 +751,12 @@ export default function App() {
               onUpdateProject={handleUpdateProject}
               initialTab={budgetTabMode}
               onTabChange={setBudgetTabMode}
+              initiallySelectedBudgetId={targetBudgetId}
+              onClearInitiallySelectedBudget={() => setTargetBudgetId(null)}
+              onNavigateToProject={(projectId) => {
+                setTargetProjectId(projectId);
+                setActiveTab('projects');
+              }}
             />
           )}
 
@@ -745,6 +767,13 @@ export default function App() {
               onAddProject={handleAddProject}
               onUpdateProject={handleUpdateProject}
               onDeleteProject={handleDeleteProject}
+              initiallySelectedProjectId={targetProjectId}
+              onClearInitiallySelectedProject={() => setTargetProjectId(null)}
+              onNavigateToBudget={(budgetId) => {
+                setTargetBudgetId(budgetId);
+                setBudgetTabMode('history');
+                setActiveTab('budgets');
+              }}
             />
           )}
 

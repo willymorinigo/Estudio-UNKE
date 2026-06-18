@@ -5,12 +5,12 @@
 
 import React, { useState } from 'react';
 import { Client, Payment, Budget } from '../types';
-import { formatCurrency } from '../pdfExport';
+import { formatCurrency, formatDateDMY } from '../pdfExport';
 import { 
   Users, Plus, Search, Mail, Phone, MapPin, 
   Globe, Key, Eye, EyeOff, Clipboard, CreditCard, 
   History, DollarSign, Calendar, Trash2, Edit2, CheckCircle2,
-  AlertCircle, RefreshCw
+  AlertCircle, RefreshCw, ExternalLink
 } from 'lucide-react';
 
 interface ClientsListProps {
@@ -20,6 +20,7 @@ interface ClientsListProps {
   onUpdateClient: (client: Client) => void;
   onDeleteClient: (id: string) => void;
   onAddPayment: (budgetId: string, payment: Payment) => void;
+  onNavigateToBudget?: (budgetId: string) => void;
 }
 
 export default function ClientsList({
@@ -28,7 +29,8 @@ export default function ClientsList({
   onAddClient,
   onUpdateClient,
   onDeleteClient,
-  onAddPayment
+  onAddPayment,
+  onNavigateToBudget
 }: ClientsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -922,8 +924,15 @@ export default function ClientsList({
                               return (
                                 <div key={b.id} className="flex justify-between items-center p-2 bg-white border border-slate-100 rounded-lg text-xs">
                                   <div>
-                                    <span className="font-bold text-gray-800">{b.id}</span>
-                                    <span className="text-gray-400 text-[10px] ml-2 font-mono">({b.date})</span>
+                                    <span 
+                                      onClick={() => onNavigateToBudget && onNavigateToBudget(b.id)}
+                                      className="font-extrabold text-[#34877c] hover:underline cursor-pointer flex items-center gap-1.5 inline-flex"
+                                      title="Haz clic para abrir este presupuesto en detalle"
+                                    >
+                                      {b.id}
+                                      <ExternalLink className="w-3 h-3 text-[#34877c]" />
+                                    </span>
+                                    <span className="text-gray-400 text-[10px] ml-2 font-mono">({formatDateDMY(b.date)})</span>
                                   </div>
                                   <div className="flex items-center gap-3">
                                     <span className="text-gray-500">{formatCurrency(bPaid)} / {formatCurrency(b.total)}</span>
@@ -950,7 +959,7 @@ export default function ClientsList({
                               <History className="w-3.5 h-3.5 text-gray-400" /> Historial de Transacciones / Ingresos
                             </h5>
                             <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
-                              <table className="w-full text-left text-[11px] text-gray-600">
+                              <table className="w-full text-left text-[11px] text-gray-600 font-sans">
                                 <thead className="bg-[#34877c]/5 text-gray-700 font-semibold border-b border-slate-100">
                                   <tr>
                                     <th className="p-2.5">Fecha</th>
@@ -963,8 +972,14 @@ export default function ClientsList({
                                 <tbody className="divide-y divide-slate-100 font-mono">
                                   {allPayments.map(pData => (
                                     <tr key={pData.pay.id} className="hover:bg-slate-50">
-                                      <td className="p-2.5">{pData.pay.date}</td>
-                                      <td className="p-2.5 font-bold text-[#34877c]">{pData.budId}</td>
+                                      <td className="p-2.5">{formatDateDMY(pData.pay.date)}</td>
+                                      <td 
+                                        className="p-2.5 font-bold text-[#34877c] cursor-pointer hover:underline"
+                                        onClick={() => onNavigateToBudget && onNavigateToBudget(pData.budId)}
+                                        title="Haga clic para ir a este presupuesto"
+                                      >
+                                        {pData.budId}
+                                      </td>
                                       <td className="p-2.5 font-sans italic max-w-[200px] truncate">{pData.pay.notes || 'Pago estandar registrado'}</td>
                                       <td className="p-2.5 font-sans">{pData.pay.method}</td>
                                       <td className="p-2.5 text-right font-bold text-emerald-600">{formatCurrency(pData.pay.amount)}</td>

@@ -27,7 +27,8 @@ const app = initializeApp({
 const cacheSettings = {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  })
+  }),
+  ignoreUndefinedProperties: true
 };
 
 export const db = config.firestoreDatabaseId 

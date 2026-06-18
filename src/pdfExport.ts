@@ -16,6 +16,18 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+// Helper to format date string YYYY-MM-DD or full ISO date to DD/MM/YYYY
+export function formatDateDMY(dateStr: string | undefined | null): string {
+  if (!dateStr) return '';
+  const clean = dateStr.split('T')[0];
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+  return dateStr;
+}
+
 // Normalize Spanish accents for standard PDF fonts compatibility
 function cleanText(text: string): string {
   if (!text) return '';
@@ -99,6 +111,12 @@ export function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFontSize(14);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
   doc.text('PRESUPUESTO TECNICO', 20, 53);
+  if (budget.isMonthly) {
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text('(ABONO MENSUAL RECURRENTE)', 20, 58);
+  }
 
   // Budget details box
   doc.setFont('Helvetica', 'bold');

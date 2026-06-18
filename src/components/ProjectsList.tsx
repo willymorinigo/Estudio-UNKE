@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, ProjectStatus, ProjectTask, PreloadedTask } from '../types';
-import { formatCurrency } from '../pdfExport';
+import { formatCurrency, formatDateDMY } from '../pdfExport';
 import { 
   FolderGit2, CheckCircle2, Circle, Plus, Trash2, 
   Clock, TrendingUp, Calendar, Inbox, CheckSquare, Sparkles 
@@ -17,6 +17,9 @@ interface ProjectsListProps {
   onAddProject: (project: Project) => void;
   onUpdateProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
+  initiallySelectedProjectId?: string | null;
+  onClearInitiallySelectedProject?: () => void;
+  onNavigateToBudget?: (budgetId: string) => void;
 }
 
 export default function ProjectsList({
@@ -24,12 +27,24 @@ export default function ProjectsList({
   preloadedTasks,
   onAddProject,
   onUpdateProject,
-  onDeleteProject
+  onDeleteProject,
+  initiallySelectedProjectId,
+  onClearInitiallySelectedProject,
+  onNavigateToBudget
 }: ProjectsListProps) {
   // Navigation
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     projects.length > 0 ? projects[0].id : null
   );
+
+  useEffect(() => {
+    if (initiallySelectedProjectId) {
+      setSelectedProjectId(initiallySelectedProjectId);
+      if (onClearInitiallySelectedProject) {
+        onClearInitiallySelectedProject();
+      }
+    }
+  }, [initiallySelectedProjectId, onClearInitiallySelectedProject]);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   // Creating project state
@@ -39,6 +54,10 @@ export default function ProjectsList({
   const [pDesc, setPDesc] = useState('');
   const [pStatus, setPStatus] = useState<ProjectStatus>('En Progreso');
   const [pCategory, setPCategory] = useState('Identidad'); // Auto task injection
+  const [pEstimatedDeliveryDate, setPEstimatedDeliveryDate] = useState('');
+
+  // Editing and maintenance/recurrence states
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   // Task inline state
   const [newTaskName, setNewTaskName] = useState('');
@@ -78,7 +97,8 @@ export default function ProjectsList({
         { id: `t_${Date.now()}_2`, name: 'Presentar bocetos preliminares', completed: false },
         { id: `t_${Date.now()}_3`, name: 'Entrega final y aprobacion de piezas', completed: false }
       ],
-      pieces: []
+      pieces: [],
+      estimatedDeliveryDate: pEstimatedDeliveryDate || undefined
     };
 
     onAddProject(newProj);
@@ -90,6 +110,32 @@ export default function ProjectsList({
     setPClientName('');
     setPDesc('');
     setPStatus('En Progreso');
+    setPEstimatedDeliveryDate('');
+  };
+
+  // Update specific task recurrence / details
+  const handleUpdateTaskDetails = (taskId: string, updates: Partial<ProjectTask>) => {
+    if (!selectedProject) return;
+    const updatedTasks = selectedProject.tasks.map(t => {
+      if (t.id === taskId) {
+        return { ...t, ...updates };
+      }
+      return t;
+    });
+
+    onUpdateProject({
+      ...selectedProject,
+      tasks: updatedTasks
+    });
+  };
+
+  // Update project delivery date
+  const handleUpdateDeliveryDate = (date: string) => {
+    if (!selectedProject) return;
+    onUpdateProject({
+      ...selectedProject,
+      estimatedDeliveryDate: date || undefined
+    });
   };
 
   // Toggle checklist status
@@ -242,6 +288,15 @@ export default function ProjectsList({
                   <option value="Marketing">Marketing / Tráfico de Redes (2 Tareas preestablecidas)</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Fecha Tentativa de Entrega</label>
+                <input
+                  type="date"
+                  value={pEstimatedDeliveryDate}
+                  onChange={e => setPEstimatedDeliveryDate(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-[#34877c]"
+                />
+              </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Descripción de Objetivos</label>
                 <textarea
@@ -335,8 +390,8 @@ export default function ProjectsList({
                           ></div>
                         </div>
                         <div className="flex justify-between text-[8px] text-gray-400">
-                          <span>Iniciado: {proj.startDate}</span>
-                          <span>{proj.tasks.filter(t => t.completed).length}/{proj.tasks.length} completas</span>
+                           <span>Iniciado: {formatDateDMY(proj.startDate)}</span>
+                           <span>{proj.tasks.filter(t => t.completed).length}/{proj.tasks.length} completas</span>
                         </div>
                       </div>
                     </div>
@@ -400,21 +455,35 @@ export default function ProjectsList({
                   </p>
                 </div>
                 <div className="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
-                  <div className="flex items-center gap-1.5 text-gray-500">
+                  <div className="flex items-center gap-1.5 text-gray-500 font-medium">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>Lanzamiento: <strong>{selectedProject.startDate}</strong></span>
+                    <span>Lanzamiento: <strong>{formatDateDMY(selectedProject.startDate)}</strong></span>
                   </div>
                   {selectedProject.endDate && (
-                    <div className="flex items-center gap-1.5 text-emerald-600">
+                    <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Terminado el: <strong>{selectedProject.endDate}</strong></span>
+                      <span>Terminado el: <strong>{formatDateDMY(selectedProject.endDate)}</strong></span>
                     </div>
                   )}
                   {selectedProject.budgetId && (
-                    <div className="text-[10px] text-gray-400 bg-white border p-1 rounded font-mono truncate text-center">
-                      Vinculado: {selectedProject.budgetId}
+                    <div 
+                      className="text-[10px] text-[#34877c] hover:bg-teal-50 bg-white border border-teal-100 p-1.5 px-2.5 rounded font-mono truncate text-center cursor-pointer font-bold transition flex items-center justify-center gap-1 shadow-2xs"
+                      onClick={() => onNavigateToBudget && onNavigateToBudget(selectedProject.budgetId!)}
+                      title="Ver Presupuesto Comercial Vinculado"
+                    >
+                      <span>Presupuesto: {selectedProject.budgetId}</span>
+                      <Sparkles className="w-2.5 h-2.5 shrink-0 text-amber-500 animate-pulse" />
                     </div>
                   )}
+                  <div className="space-y-1 bg-white p-2 rounded-lg border border-slate-200/50 mt-1">
+                    <label className="block text-[8px] uppercase font-bold text-gray-450 tracking-wider">Fecha Est. de Entrega</label>
+                    <input
+                      type="date"
+                      value={selectedProject.estimatedDeliveryDate || ''}
+                      onChange={e => handleUpdateDeliveryDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-150 rounded p-1 text-[11px] text-gray-800 font-semibold focus:outline-none focus:border-[#34877c]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -473,34 +542,114 @@ export default function ProjectsList({
                         No hay tareas configuradas en este checklist de proyecto.
                       </div>
                     ) : (
-                      selectedProject.tasks.map((task, idx) => (
-                        <div
-                          key={task.id}
-                          className="flex justify-between items-center p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 transition text-xs"
-                        >
-                          <div 
-                            onClick={() => handleToggleTask(idx)}
-                            className="flex items-center gap-2.5 cursor-pointer flex-grow select-none"
+                      selectedProject.tasks.map((task, idx) => {
+                        const isEditingThis = editingTaskId === task.id;
+                        return (
+                          <div
+                            key={task.id}
+                            className="flex flex-col border border-slate-100/80 rounded-xl p-1 bg-white hover:bg-slate-50/20 hover:border-slate-200/50 transition duration-150"
                           >
-                            {task.completed ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            ) : (
-                              <Circle className="w-4 h-4 text-gray-300 shrink-0" />
+                            <div className="flex justify-between items-center p-1 px-2 text-xs">
+                              <div 
+                                onClick={() => handleToggleTask(idx)}
+                                className="flex items-center gap-2.5 cursor-pointer flex-grow select-none pr-2"
+                              >
+                                {task.completed ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                ) : (
+                                  <Circle className="w-4 h-4 text-gray-300 shrink-0" />
+                                )}
+                                <div className="flex flex-col text-left">
+                                  <span className={`text-gray-700 leading-tight ${task.completed ? 'line-through text-gray-400 font-sans font-normal' : 'font-semibold text-[11px]'}`}>
+                                    {task.name}
+                                  </span>
+                                  {task.isMaintenance && (
+                                    <span className="text-[9px] text-emerald-650 font-black uppercase tracking-wider mt-0.5 inline-flex items-center gap-1">
+                                      🔄 Mensualizado {task.monthlyBillingDay ? `(Cobro: Día ${task.monthlyBillingDay})` : ''} 
+                                      {task.monthlyBillingAmount ? ` — ${formatCurrency(task.monthlyBillingAmount)}` : ''}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTaskId(isEditingThis ? null : task.id);
+                                  }}
+                                  className={`p-1.5 rounded-lg hover:bg-slate-100 transition duration-100 cursor-pointer ${task.isMaintenance ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 hover:text-gray-600'}`}
+                                  title="Configurar recurrencia y cobro mensual de mantenimiento"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTask(task.id);
+                                  }}
+                                  className="text-gray-300 hover:text-red-500 p-1 rounded transition"
+                                  title="Quitar tarea"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {isEditingThis && (
+                              <div className="mx-2 mb-2 p-3 bg-slate-50/80 rounded-xl border border-slate-200/50 text-[10px] text-gray-600 space-y-2 animate-in slide-in-from-top-1 duration-100">
+                                <div className="flex items-center justify-between border-b border-gray-150 pb-1">
+                                  <span className="font-extrabold text-gray-700 uppercase tracking-widest text-[9px]">Ajustes de Mantenimiento</span>
+                                  <span className="text-[8px] font-mono font-bold text-gray-400">Tarea ID: {task.id.slice(-6)}</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 py-0.5">
+                                  <input
+                                    type="checkbox"
+                                    id={`maintenance-check-${task.id}`}
+                                    checked={!!task.isMaintenance}
+                                    onChange={e => handleUpdateTaskDetails(task.id, { isMaintenance: e.target.checked })}
+                                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <label htmlFor={`maintenance-check-${task.id}`} className="font-bold text-gray-750 cursor-pointer select-none text-[11px]">
+                                    Esta tarea requiere Mantenimiento Continuo
+                                  </label>
+                                </div>
+
+                                {task.isMaintenance && (
+                                  <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-100">
+                                    <div className="space-y-1">
+                                      <label className="block text-[8px] uppercase font-bold text-gray-450">Día de Cobro (1-31)</label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        value={task.monthlyBillingDay || ''}
+                                        onChange={e => handleUpdateTaskDetails(task.id, { monthlyBillingDay: parseInt(e.target.value) || undefined })}
+                                        placeholder="Ej. 10"
+                                        className="w-full bg-white border border-slate-200 rounded-lg p-1 px-2 text-xs font-bold text-gray-850 focus:outline-none"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="block text-[8px] uppercase font-bold text-gray-450">Abono Mensual ($)</label>
+                                      <input
+                                        type="number"
+                                        value={task.monthlyBillingAmount || ''}
+                                        onChange={e => handleUpdateTaskDetails(task.id, { monthlyBillingAmount: parseFloat(e.target.value) || undefined })}
+                                        placeholder="Ej. 65000"
+                                        className="w-full bg-white border border-slate-200 rounded-lg p-1 px-2 text-xs font-bold text-gray-850 focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             )}
-                            <span className={`text-gray-700 leading-tight ${task.completed ? 'line-through text-gray-400 font-sans' : 'font-medium'}`}>
-                              {task.name}
-                            </span>
                           </div>
-                          
-                          <button
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="text-gray-300 hover:text-red-500 p-1"
-                            title="Quitar tarea"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

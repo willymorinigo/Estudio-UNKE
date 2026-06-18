@@ -93,7 +93,14 @@ export default function App() {
     localStorage.setItem('unke_active_partner', user);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (currentUser) {
+      try {
+        await deleteDocument('presence', currentUser);
+      } catch (err) {
+        console.error("Error setting offline presence on logout:", err);
+      }
+    }
     setCurrentUser(null);
     localStorage.removeItem('unke_current_user');
   };
@@ -131,6 +138,71 @@ export default function App() {
     handleUpdatePartnerNames(valid);
     setShowPartnerModal(false);
   };
+
+  // Real-time Partner Presence State Definitions
+  const [onlinePartners, setOnlinePartners] = useState<{ id: string; name: string; lastActive: string }[]>([]);
+  const [now, setNow] = useState(Date.now());
+
+  // Subscribe to real-time presence collection
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsubPresence = subscribeToCollection<{ id: string; name: string; lastActive: string }>('presence', (items) => {
+      setOnlinePartners(items);
+    });
+    return () => {
+      unsubPresence();
+    };
+  }, [currentUser]);
+
+  // Presence heartbeat updates (runs every 10 seconds, with immediate execution on login/boot)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const updatePresence = async () => {
+      try {
+        await saveDocument('presence', currentUser, {
+          id: currentUser,
+          name: currentUser,
+          lastActive: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Error updating presence:", err);
+      }
+    };
+
+    updatePresence();
+    const intervalId = setInterval(updatePresence, 10000);
+
+    const handleBeforeUnload = () => {
+      deleteDocument('presence', currentUser).catch(() => {});
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      deleteDocument('presence', currentUser).catch(() => {});
+    };
+  }, [currentUser]);
+
+  // Periodic heartbeat timer tick to keep online calculation snappy
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setNow(Date.now());
+    }, 5000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const activeOnlinePartners = onlinePartners.filter(p => {
+    if (!p.lastActive || p.id === currentUser) return false;
+    try {
+      const diffMs = now - new Date(p.lastActive).getTime();
+      return diffMs >= 0 && diffMs < 35000; // Active within 35 seconds
+    } catch {
+      return false;
+    }
+  });
 
   // Global Data States
   const [clients, setClients] = useState<Client[]>([]);
@@ -613,6 +685,41 @@ export default function App() {
 
           {/* Actions & Profile (Current Socio Session & Custom Avatar) */}
           <div className="flex items-center gap-4">
+            {/* Real-time Online Partners Widget */}
+            {activeOnlinePartners.length > 0 ? (
+              <div className="flex items-center gap-2 bg-emerald-50/75 border border-emerald-500/25 px-3 py-1.5 rounded-full shadow-xs shrink-0 animate-in fade-in zoom-in duration-350">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[9px] uppercase font-black text-emerald-800 tracking-wider hidden sm:inline-block">
+                  En paralelo:
+                </span>
+                <div className="flex -space-x-1.5 overflow-hidden">
+                  {activeOnlinePartners.map(p => (
+                    <div 
+                      key={p.id} 
+                      className="relative group cursor-help shrink-0" 
+                      title={`${p.name} está colaborando ahora`}
+                    >
+                      <UserAvatar user={p.name} className="w-6.5 h-6.5 border-2 border-white rounded-full bg-white shadow-xs" />
+                      <span className="absolute bottom-0 right-0 block h-1.5 w-1.5 rounded-full ring-2 ring-white bg-emerald-500" />
+                      
+                      {/* Interactive hover tooltip */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-1 bg-gray-950 text-white text-[9px] font-bold rounded-md shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60] border border-gray-800">
+                        Socio en línea: {p.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center gap-1.5 text-[9.5px] font-bold text-gray-400 bg-gray-50 border border-gray-100/50 px-2.5 py-1.5 rounded-full shadow-2xs shrink-0">
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                <span>Solo tú en línea</span>
+              </div>
+            )}
+
             <button
               onClick={handleLogout}
               title="Click para Cerrar Sesión"

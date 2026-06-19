@@ -1137,7 +1137,7 @@ export function UserAvatar({ user, className = "w-8 h-8" }: { user: string; clas
 }
 
 function Login({ onLogin }: { onLogin: (user: string) => void }) {
-  const [username, setUsername] = useState('Willy');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');

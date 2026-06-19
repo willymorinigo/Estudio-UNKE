@@ -384,15 +384,15 @@ export default function Dashboard({
         </div>
 
         {/* ENTREGA DE PROYECTOS / CUENTA REGRESIVA */}
-        <div className="lg:col-span-1 bg-white rounded-3xl border border-rose-150/80 p-6 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-1 bg-[#34877c] rounded-3xl border-2 border-[#34877c] p-6 shadow-xs flex flex-col justify-between">
           <div className="space-y-4">
-            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2 border-b border-rose-100 pb-2">
-              <Clock className="w-4 h-4 text-rose-500 shrink-0" />
+            <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 border-b border-rose-100/20 pb-2">
+              <Clock className="w-4 h-4 text-white shrink-0" />
               Vencimientos de Entrega Próxima ({projectsWithDelivery.length})
             </h4>
             {projectsWithDelivery.length > 0 ? (
               <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
-                {projectsWithDelivery.map(p => {
+                {projectsWithDelivery.map((p, index) => {
                   let badgeColor = "bg-emerald-50 text-emerald-800 border-emerald-100";
                   let textDays = "";
                   
@@ -408,6 +408,10 @@ export default function Dashboard({
                   } else {
                     badgeColor = "bg-purple-50 text-purple-800 border-purple-100 font-semibold";
                     textDays = `En ${p.daysRemaining} días (${formatDateDMY(p.estimatedDeliveryDate)})`;
+                  }
+
+                  if (index === 0 || index === 1) {
+                    badgeColor = "bg-[#fff5f5] text-[#b01111] border-[#ffe8e8] font-black";
                   }
 
                   return (

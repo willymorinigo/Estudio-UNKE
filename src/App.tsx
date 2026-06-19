@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Client, DesignPiece, PreloadedTask, Budget, Project, BudgetStatus, Payment } from './types';
 import { resetToDefaults } from './initialData';
 import { subscribeToCollection, saveDocument, deleteDocument, seedDatabaseIfEmpty, forceSeedDatabase } from './firebase';
@@ -197,12 +198,29 @@ export default function App() {
   const activeOnlinePartners = onlinePartners.filter(p => {
     if (!p.lastActive || p.id === currentUser) return false;
     try {
-      const diffMs = now - new Date(p.lastActive).getTime();
-      return diffMs >= 0 && diffMs < 35000; // Active within 35 seconds
+      const diffMs = Math.abs(now - new Date(p.lastActive).getTime());
+      return diffMs < 120000; // Active within 2 minutes (highly resilient to user clock skews and network/tab lags)
     } catch {
       return false;
     }
   });
+
+  // State for session joins / toast notifications
+  const [sessionToast, setSessionToast] = useState<string | null>(null);
+  const prevActiveNamesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const currentActiveNames = activeOnlinePartners.map(p => p.name);
+    
+    // Check if there is someone in currentActiveNames that wasn't in prevActiveNamesRef.current
+    const newlyConnected = currentActiveNames.find(name => !prevActiveNamesRef.current.includes(name));
+    
+    if (newlyConnected) {
+      setSessionToast(newlyConnected);
+    }
+    
+    prevActiveNamesRef.current = currentActiveNames;
+  }, [onlinePartners, now]);
 
   // Global Data States
   const [clients, setClients] = useState<Client[]>([]);
@@ -939,7 +957,7 @@ export default function App() {
             <div className="space-y-3.5">
               {partnerInputs.map((name, idx) => (
                 <div key={idx} className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-widest font-extrabold text-[#6f6f6e]">
+                   <label className="text-[10px] uppercase tracking-widest font-extrabold text-[#6f6f6e]">
                     Socio {idx + 1}
                   </label>
                   <input
@@ -984,6 +1002,45 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Live Collaboration Toast Notification */}
+      <AnimatePresence>
+        {sessionToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed bottom-6 right-6 z-[100] max-w-sm bg-white rounded-2xl border border-emerald-500/20 p-4 shadow-2xl flex items-start gap-3.5"
+            style={{ boxShadow: '0 20px 25px -5px rgba(16, 185, 129, 0.1), 0 10px 10px -5px rgba(16, 185, 129, 0.04)' }}
+          >
+            <div className="relative shrink-0 mt-0.5">
+              <UserAvatar user={sessionToast} className="w-10 h-10 border-2 border-emerald-500 rounded-full bg-slate-50" />
+              <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white bg-emerald-500 animate-pulse" />
+            </div>
+            
+            <div className="flex-1 min-w-0 pr-2">
+              <h5 className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+                Colaboración En Vivo
+              </h5>
+              <p className="text-xs font-bold text-gray-950 mt-0.5">
+                ¡El socio <span className="text-[#34877c] font-black">{sessionToast}</span> se ha conectado!
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1 leading-snug font-medium">
+                Ambos están visualizando el panel del estudio al mismo tiempo.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setSessionToast(null)}
+              className="text-gray-400 hover:text-gray-700 hover:bg-slate-100 p-1 rounded-lg transition-colors shrink-0"
+              aria-label="Cerrar notificación"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

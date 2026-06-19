@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, ChevronDown, CheckCheck } from 'lucide-react';
-import { subscribeToCollection, saveDocument } from '../firebase';
+import { subscribeToRecentMessages, saveDocument } from '../firebase';
 import { ChatMessage } from '../types';
 
 interface InternalChatProps {
@@ -34,7 +34,7 @@ export default function InternalChat({ currentUser, otherActivePartners }: Inter
 
   // Subscribe to real-time messages
   useEffect(() => {
-    const unsub = subscribeToCollection<ChatMessage>('messages', (items) => {
+    const unsub = subscribeToRecentMessages((items) => {
       // 1. Filter out null/undefined values or messages without actual text contents
       const validMessages = items.filter(m => m && typeof m.text === 'string' && m.text.trim() !== '');
 
@@ -47,20 +47,9 @@ export default function InternalChat({ currentUser, otherActivePartners }: Inter
         return finalA - finalB;
       });
       
-      // 3. Filter messages from the last 24 hours
-      const now = Date.now();
-      const oneDayAgo = now - 24 * 60 * 60 * 1000;
-      let trimmed = sorted.filter(m => {
-        const t = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-        return !isNaN(t) && t > oneDayAgo;
-      });
-
-      // 4. Default fallback: if there are fewer than 30 messages in the last 24 hours, show up to 30 messages regardless of age
-      if (trimmed.length < 30) {
-        trimmed = sorted.slice(-30);
-      }
-
-      setMessages(trimmed);
+      // 3. Since subscribeToRecentMessages already limits to the 50 most recent on the cloud,
+      // we can directly set the state and make loading extremely fast.
+      setMessages(sorted);
       setChatInitError(null);
     }, (err) => {
       console.warn("Retrying/waiting for chat messages permissions:", err);

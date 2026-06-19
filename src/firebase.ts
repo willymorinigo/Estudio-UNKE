@@ -10,10 +10,14 @@ import {
   writeBatch,
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
+  query,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import config from '../firebase-applet-config.json';
 import { INITIAL_CLIENTS, PRELOADED_PIECES, PRELOADED_TASKS, INITIAL_BUDGETS, INITIAL_PROJECTS } from './initialData';
+import { ChatMessage } from './types';
 
 const app = initializeApp({
   apiKey: config.apiKey,
@@ -102,6 +106,29 @@ export function subscribeToCollection<T>(
   });
 }
 
+// Optimized real-time chat subscription (fetches last 50 messages sorted descending and reverses them)
+export function subscribeToRecentMessages(
+  onData: (items: ChatMessage[]) => void,
+  onError?: (err: Error) => void
+) {
+  const colRef = collection(db, 'messages');
+  const q = query(colRef, orderBy('timestamp', 'desc'), limit(50));
+  
+  return onSnapshot(q, (snapshot) => {
+    const items: ChatMessage[] = [];
+    snapshot.forEach((docSnap) => {
+      items.push({ id: docSnap.id, ...docSnap.data() } as ChatMessage);
+    });
+    // Reverse to present ascending chronologically
+    onData(items.reverse());
+  }, (err) => {
+    console.error("Error in real-time chat subscription:", err);
+    if (onError) {
+      onError(err);
+    }
+  });
+}
+
 // Write/Edit document
 export async function saveDocument(col: string, id: string, data: any) {
   try {
@@ -122,77 +149,82 @@ export async function deleteDocument(col: string, id: string) {
   }
 }
 
-// Auto-seed Firestore if clean
+// Auto-seed Firestore if clean (Optimized with Promise.all for speed and concurrency)
 export async function seedDatabaseIfEmpty() {
   try {
-    // Clients
-    const clientsSnap = await getDocs(collection(db, 'clients'));
+    const [clientsSnap, piecesSnap, tasksSnap, budgetsSnap, projectsSnap] = await Promise.all([
+      getDocs(collection(db, 'clients')),
+      getDocs(collection(db, 'pieces')),
+      getDocs(collection(db, 'tasks')),
+      getDocs(collection(db, 'budgets')),
+      getDocs(collection(db, 'projects'))
+    ]);
+
+    const saveJobs: Promise<any>[] = [];
+
     if (clientsSnap.empty) {
-      console.log('Seeding default clients...');
-      await Promise.all(INITIAL_CLIENTS.map(item => 
-        saveDocument('clients', item.id, {
+      console.log('Seeding default clients in parallel...');
+      INITIAL_CLIENTS.forEach(item => {
+        saveJobs.push(saveDocument('clients', item.id, {
           ...item,
           createdBy: 'Sistema',
           updatedBy: 'Sistema',
           updatedAt: new Date().toISOString()
-        })
-      ));
+        }));
+      });
     }
 
-    // Design pieces (Catalog)
-    const piecesSnap = await getDocs(collection(db, 'pieces'));
     if (piecesSnap.empty) {
-      console.log('Seeding default catalog pieces...');
-      await Promise.all(PRELOADED_PIECES.map(item => 
-        saveDocument('pieces', item.id, {
+      console.log('Seeding default catalog pieces in parallel...');
+      PRELOADED_PIECES.forEach(item => {
+        saveJobs.push(saveDocument('pieces', item.id, {
           ...item,
           createdBy: 'Sistema',
           updatedBy: 'Sistema',
           updatedAt: new Date().toISOString()
-        })
-      ));
+        }));
+      });
     }
 
-    // Preloaded tasks (Global checklists)
-    const tasksSnap = await getDocs(collection(db, 'tasks'));
     if (tasksSnap.empty) {
-      console.log('Seeding default tasks...');
-      await Promise.all(PRELOADED_TASKS.map(item => 
-        saveDocument('tasks', item.id, {
+      console.log('Seeding default tasks in parallel...');
+      PRELOADED_TASKS.forEach(item => {
+        saveJobs.push(saveDocument('tasks', item.id, {
           ...item,
           createdBy: 'Sistema',
           updatedBy: 'Sistema',
           updatedAt: new Date().toISOString()
-        })
-      ));
+        }));
+      });
     }
 
-    // Budgets
-    const budgetsSnap = await getDocs(collection(db, 'budgets'));
     if (budgetsSnap.empty) {
-      console.log('Seeding default budgets...');
-      await Promise.all(INITIAL_BUDGETS.map(item => 
-        saveDocument('budgets', item.id, {
+      console.log('Seeding default budgets in parallel...');
+      INITIAL_BUDGETS.forEach(item => {
+        saveJobs.push(saveDocument('budgets', item.id, {
           ...item,
           createdBy: 'Sistema',
           updatedBy: 'Sistema',
           updatedAt: new Date().toISOString()
-        })
-      ));
+        }));
+      });
     }
 
-    // Projects
-    const projectsSnap = await getDocs(collection(db, 'projects'));
     if (projectsSnap.empty) {
-      console.log('Seeding default projects...');
-      await Promise.all(INITIAL_PROJECTS.map(item => 
-        saveDocument('projects', item.id, {
+      console.log('Seeding default projects in parallel...');
+      INITIAL_PROJECTS.forEach(item => {
+        saveJobs.push(saveDocument('projects', item.id, {
           ...item,
           createdBy: 'Sistema',
           updatedBy: 'Sistema',
           updatedAt: new Date().toISOString()
-        })
-      ));
+        }));
+      });
+    }
+
+    if (saveJobs.length > 0) {
+      await Promise.all(saveJobs);
+      console.log('Seeding completed successfully.');
     }
   } catch (error) {
     console.error('Failed to seed cloud database:', error);

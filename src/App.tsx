@@ -159,7 +159,7 @@ export default function App() {
     };
   }, [currentUser]);
 
-  // Presence heartbeat updates (runs every 10 seconds, with immediate execution on login/boot)
+  // Presence heartbeat updates (runs every 6 seconds, with immediate execution on login/boot)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -176,7 +176,7 @@ export default function App() {
     };
 
     updatePresence();
-    const intervalId = setInterval(updatePresence, 10000);
+    const intervalId = setInterval(updatePresence, 6000);
 
     const handleBeforeUnload = () => {
       deleteDocument('presence', sessionId).catch(() => {});
@@ -191,11 +191,11 @@ export default function App() {
     };
   }, [currentUser, sessionId]);
 
-  // Periodic heartbeat timer tick to keep online calculation snappy
+  // Periodic heartbeat timer tick to keep online calculation snappy (tick every 1.5 seconds)
   useEffect(() => {
     const tick = setInterval(() => {
       setNow(Date.now());
-    }, 5000);
+    }, 1500);
     return () => clearInterval(tick);
   }, []);
 
@@ -203,7 +203,7 @@ export default function App() {
     if (!p.lastActive || p.id === sessionId) return false;
     try {
       const diffMs = Math.abs(now - new Date(p.lastActive).getTime());
-      return diffMs < 120000; // Active within 2 minutes (highly resilient to user clock skews and network/tab lags)
+      return diffMs < 80000; // Active within 80 seconds (ultra-responsive but fully clock-skeew safe)
     } catch {
       return false;
     }

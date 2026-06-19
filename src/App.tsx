@@ -30,30 +30,42 @@ import willyAvatar from '@/willy.png';
 import logoSvg from '@/logo.svg';
 
 // Resilient Logo Component that automatically fallbacks to 'U' if custom /logo.svg is missing or loading
-const Logo = ({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) => {
+const Logo = ({ size = 'desktop', className = '' }: { size?: 'desktop' | 'mobile' | 'large'; className?: string }) => {
   const [imgFailed, setImgFailed] = useState(false);
 
   if (imgFailed) {
     if (size === 'desktop') {
       return (
-        <span className="w-6 h-6 bg-[#34877c] rounded-lg flex items-center justify-center text-white text-[13px] font-black leading-none shrink-0 select-none">
+        <span className={`w-6 h-6 bg-[#34877c] rounded-lg flex items-center justify-center text-white text-[13px] font-black leading-none shrink-0 select-none ${className}`}>
           U
         </span>
       );
     }
+    if (size === 'large') {
+      return (
+        <div className={`w-full h-full bg-[#34877c] rounded-3xl flex items-center justify-center text-white font-black text-6xl select-none shrink-0 ${className}`}>
+          U
+        </div>
+      );
+    }
     return (
-      <div className="w-8 h-8 bg-[#34877c] rounded-lg flex items-center justify-center text-white font-black text-sm shrink-0 select-none">
+      <div className={`w-8 h-8 bg-[#34877c] rounded-lg flex items-center justify-center text-white font-black text-sm shrink-0 select-none ${className}`}>
         U
       </div>
     );
   }
+
+  let sizeClass = "w-6 h-6 object-contain";
+  if (size === 'mobile') sizeClass = "w-8 h-8 object-contain";
+  if (size === 'large') sizeClass = "w-full h-full object-contain";
 
   return (
     <img 
       src={logoSvg} 
       alt="UNKE" 
       onError={() => setImgFailed(true)}
-      className={size === 'desktop' ? "w-6 h-6 object-contain" : "w-8 h-8 object-contain"}
+      className={`${sizeClass} ${className}`}
+      referrerPolicy="no-referrer"
     />
   );
 };
@@ -1181,8 +1193,80 @@ function Login({ onLogin }: { onLogin: (user: string) => void }) {
   const partners = ['Fede', 'Nacho', 'Willy'];
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 sm:p-6 font-sans">
-      <div className="w-full max-w-sm bg-white border border-[#6f6f6e]/15 rounded-3xl shadow-xl p-8 space-y-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
+      
+      {/* Dynamic Animated Logo Texture Background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+        {/* Floating/Rotating Logo 1 - Top Left */}
+        <motion.div 
+          className="absolute -left-16 -top-16 w-80 h-80 opacity-[0.08]"
+          animate={{ 
+            rotate: 360,
+            y: [0, 15, 0],
+            x: [0, 10, 0]
+          }}
+          transition={{ 
+            rotate: { duration: 42, repeat: Infinity, ease: "linear" },
+            y: { duration: 14, repeat: Infinity, ease: "easeInOut" },
+            x: { duration: 16, repeat: Infinity, ease: "easeInOut" }
+          }}
+        >
+          <Logo size="large" className="text-[#34877c]" />
+        </motion.div>
+
+        {/* Floating/Rotating Logo 2 - Bottom Right */}
+        <motion.div 
+          className="absolute -right-20 -bottom-20 w-96 h-96 opacity-[0.06]"
+          animate={{ 
+            rotate: -360,
+            y: [0, -20, 0],
+            x: [0, -15, 0]
+          }}
+          transition={{ 
+            rotate: { duration: 58, repeat: Infinity, ease: "linear" },
+            y: { duration: 18, repeat: Infinity, ease: "easeInOut" },
+            x: { duration: 20, repeat: Infinity, ease: "easeInOut" }
+          }}
+        >
+          <Logo size="large" className="text-[#34877c]" />
+        </motion.div>
+
+        {/* Floating/Rotating Logo 3 - Center Left */}
+        <motion.div 
+          className="absolute left-[8%] top-[62%] w-56 h-56 opacity-[0.06]"
+          animate={{ 
+            rotate: 180,
+            scale: [1, 1.08, 1],
+            y: [0, 12, 0]
+          }}
+          transition={{ 
+            rotate: { duration: 48, repeat: Infinity, ease: "linear" },
+            scale: { duration: 12, repeat: Infinity, ease: "easeInOut" },
+            y: { duration: 10, repeat: Infinity, ease: "easeInOut" }
+          }}
+        >
+          <Logo size="large" className="text-[#34877c]" />
+        </motion.div>
+
+        {/* Floating/Rotating Logo 4 - Top Right */}
+        <motion.div 
+          className="absolute right-[12%] top-[12%] w-64 h-64 opacity-[0.04]"
+          animate={{ 
+            rotate: -180,
+            scale: [1, 1.05, 1],
+            x: [0, 8, 0]
+          }}
+          transition={{ 
+            rotate: { duration: 52, repeat: Infinity, ease: "linear" },
+            scale: { duration: 16, repeat: Infinity, ease: "easeInOut" },
+            x: { duration: 12, repeat: Infinity, ease: "easeInOut" }
+          }}
+        >
+          <Logo size="large" className="text-[#34877c]" />
+        </motion.div>
+      </div>
+
+      <div className="w-full max-w-sm bg-white border border-[#6f6f6e]/15 rounded-3xl shadow-xl p-8 space-y-6 relative overflow-hidden z-10">
         
         {/* Aesthetic background accent */}
         <div className="absolute right-0 top-0 opacity-5 transform translate-x-1/3 -translate-y-1/3 pointer-events-none select-none">

@@ -35,6 +35,50 @@ export const db = config.firestoreDatabaseId
   ? initializeFirestore(app, cacheSettings, config.firestoreDatabaseId) 
   : initializeFirestore(app, cacheSettings);
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 // Sync subscription helper
 export function subscribeToCollection<T>(
   col: string, 
@@ -50,20 +94,32 @@ export function subscribeToCollection<T>(
     onData(items);
   }, (err) => {
     console.error(`Error in firebase subscription for ${col}:`, err);
-    if (onError) onError(err);
+    if (onError) {
+      onError(err);
+    } else {
+      handleFirestoreError(err, OperationType.GET, col);
+    }
   });
 }
 
 // Write/Edit document
 export async function saveDocument(col: string, id: string, data: any) {
-  const docRef = doc(db, col, id);
-  await setDoc(docRef, data, { merge: true });
+  try {
+    const docRef = doc(db, col, id);
+    await setDoc(docRef, data, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, col);
+  }
 }
 
 // Delete document
 export async function deleteDocument(col: string, id: string) {
-  const docRef = doc(db, col, id);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, col, id);
+    await deleteDoc(docRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, col);
+  }
 }
 
 // Auto-seed Firestore if clean

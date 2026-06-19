@@ -208,12 +208,16 @@ export default function App() {
     }
   });
 
+  const otherActivePartners = activeOnlinePartners.filter(p => {
+    return (p.name || '').trim().toLowerCase() !== (currentUser || '').trim().toLowerCase();
+  });
+
   // State for session joins / toast notifications
   const [sessionToast, setSessionToast] = useState<string | null>(null);
   const prevActiveNamesRef = useRef<string[]>([]);
 
   useEffect(() => {
-    const currentActiveNames = activeOnlinePartners.map(p => p.name);
+    const currentActiveNames = otherActivePartners.map(p => p.name);
     
     // Check if there is someone in currentActiveNames that wasn't in prevActiveNamesRef.current
     const newlyConnected = currentActiveNames.find(name => !prevActiveNamesRef.current.includes(name));
@@ -707,7 +711,7 @@ export default function App() {
           {/* Actions & Profile (Current Socio Session & Custom Avatar) */}
           <div className="flex items-center gap-4">
             {/* Real-time Online Partners Widget */}
-            {activeOnlinePartners.length > 0 ? (
+            {otherActivePartners.length > 0 ? (
               <div className="flex items-center gap-2 bg-emerald-50/75 border border-emerald-500/25 px-3 py-1.5 rounded-full shadow-xs shrink-0 animate-in fade-in zoom-in duration-350">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -717,7 +721,7 @@ export default function App() {
                   En paralelo:
                 </span>
                 <div className="flex -space-x-1.5 overflow-hidden">
-                  {activeOnlinePartners.map(p => (
+                  {otherActivePartners.map(p => (
                     <div 
                       key={p.id} 
                       className="relative group cursor-help shrink-0" 
@@ -854,7 +858,7 @@ export default function App() {
           
           {/* Concurrency Alert Banner */}
           <AnimatePresence>
-            {activeOnlinePartners.length > 0 && (
+            {otherActivePartners.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, height: 0, y: -20 }}
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
@@ -874,7 +878,7 @@ export default function App() {
                         Alerta de Sesión Simultánea
                       </h4>
                       <p className="text-xs text-amber-900 font-bold mt-1">
-                        El socio <span className="underline decoration-amber-500/50 font-black">{activeOnlinePartners.map(p => p.name === currentUser ? `${p.name} (otra pestaña)` : p.name).join(', ')}</span> está conectado en este momento.
+                        El socio <span className="underline decoration-amber-500/50 font-black">{otherActivePartners.map(p => p.name).join(', ')}</span> está conectado en este momento.
                       </p>
                       <p className="text-[10px] text-amber-700/95 mt-1.5 leading-snug font-medium max-w-2xl">
                         Para evitar que se sobrescriban o dupliquen carpetas, presupuestos o cobros, sugerimos coordinar los cambios antes de guardar registros en la base de datos de los socios.

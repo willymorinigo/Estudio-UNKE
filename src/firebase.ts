@@ -89,7 +89,7 @@ export function subscribeToCollection<T>(
   return onSnapshot(q, (snapshot) => {
     const items: T[] = [];
     snapshot.forEach((docSnap) => {
-      items.push({ ...docSnap.data() } as T);
+      items.push({ id: docSnap.id, ...docSnap.data() } as T);
     });
     onData(items);
   }, (err) => {

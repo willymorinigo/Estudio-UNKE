@@ -28,27 +28,43 @@ export default function InternalChat({ currentUser, otherActivePartners }: Inter
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatInitError, setChatInitError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesCountRef = useRef<number>(0);
 
   // Subscribe to real-time messages
   useEffect(() => {
     const unsub = subscribeToCollection<ChatMessage>('messages', (items) => {
-      // Sort messages ascending by timestamp
-      const sorted = [...items].sort((a, b) => {
-        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      // 1. Filter out null/undefined values or messages without actual text contents
+      const validMessages = items.filter(m => m && typeof m.text === 'string' && m.text.trim() !== '');
+
+      // 2. Sort messages ascending by timestamp safely, handling any invalid or missing dates
+      const sorted = [...validMessages].sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        const finalA = isNaN(timeA) ? 0 : timeA;
+        const finalB = isNaN(timeB) ? 0 : timeB;
+        return finalA - finalB;
       });
       
-      // Filter out messages that might be older than 24 hours to keep the chat lightweight,
-      // but keep at least the last 50 messages.
-      const now = new Date().getTime();
+      // 3. Filter messages from the last 24 hours
+      const now = Date.now();
       const oneDayAgo = now - 24 * 60 * 60 * 1000;
-      let trimmed = sorted.filter(m => new Date(m.timestamp).getTime() > oneDayAgo);
+      let trimmed = sorted.filter(m => {
+        const t = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+        return !isNaN(t) && t > oneDayAgo;
+      });
+
+      // 4. Default fallback: if there are fewer than 30 messages in the last 24 hours, show up to 30 messages regardless of age
       if (trimmed.length < 30) {
         trimmed = sorted.slice(-30);
       }
 
       setMessages(trimmed);
+      setChatInitError(null);
+    }, (err) => {
+      console.warn("Retrying/waiting for chat messages permissions:", err);
+      setChatInitError(err.message || 'Error de permisos de Firestore');
     });
 
     return () => {
@@ -221,7 +237,23 @@ export default function InternalChat({ currentUser, otherActivePartners }: Inter
 
             {/* Messages Container */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-              {messages.length === 0 ? (
+              {chatInitError ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
+                  <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 animate-pulse">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-slate-700">Iniciando chat de socios...</h4>
+                  <p className="text-[10px] text-slate-400 max-w-xs">
+                    Estamos sincronizando el canal con Firestore. Si es la primera vez, el servidor puede tardar unos segundos en propagar los permisos.
+                  </p>
+                  <p className="text-[9px] text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                    Sincronizando seguridad...
+                  </p>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
                   <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
                     <MessageSquare className="w-5 h-5" />

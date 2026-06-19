@@ -28,18 +28,9 @@ export function formatDateDMY(dateStr: string | undefined | null): string {
   return dateStr;
 }
 
-// Normalize Spanish accents for standard PDF fonts compatibility
+// Keep real accents and Spanish characters intact so they display beautifully on standard Helvetica fonts
 function cleanText(text: string): string {
-  if (!text) return '';
-  return text
-    .replace(/[áÁ]/g, 'a')
-    .replace(/[éÉ]/g, 'e')
-    .replace(/[íÍ]/g, 'i')
-    .replace(/[óÓ]/g, 'o')
-    .replace(/[úÚ]/g, 'u')
-    .replace(/[ñ]/g, 'n')
-    .replace(/[Ñ]/g, 'N')
-    .replace(/[üÜ]/g, 'u');
+  return text || '';
 }
 
 // Render SVG path to PNG Base64 for clean PDF visualization
@@ -104,7 +95,7 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
 
   // --- BRANDING SECTION ---
   const logoX = 20;
-  const logoY = 22.5;
+  const logoY = 26.5;
   const logoWidth = 10;
   const logoHeight = 9.5;
 
@@ -129,12 +120,12 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text('UNKE', 32, 32);
+  doc.text('UNKE', 32, 31.5);
   
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
-  doc.text('ESTUDIO DE DISENO Web & Identidad', 32, 37);
+  doc.text('Estudio de Diseño Web & Identidad', 32, 36.5);
 
   // Studio Details (Top Right Alignment)
   doc.setFont('Helvetica', 'normal');
@@ -142,7 +133,7 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
   doc.text('UNKE Estudio Creativo', 145, 28);
   doc.text('contacto@unke.com.ar', 145, 33);
-  doc.text('Argentina - Operaciones Remotas', 145, 38);
+  doc.text('La Plata, BS. AS., Argentina', 145, 38);
 
   // Thin separator line
   doc.setDrawColor(220, 220, 220);
@@ -153,7 +144,7 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text('PRESUPUESTO TECNICO', 20, 53);
+  doc.text('PRESUPUESTO', 20, 53);
   if (budget.isMonthly) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
@@ -165,11 +156,11 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
-  doc.text(`NUMERO: ${budget.id}`, 145, 53);
+  doc.text(`NÚMERO: ${budget.id}`, 145, 53);
   
   doc.setFont('Helvetica', 'normal');
-  doc.text(`Fecha: ${budget.date}`, 145, 58);
-  doc.text(`Estado Pago: ${budget.paymentStatus.toUpperCase()}`, 145, 63);
+  doc.text(`Fecha: ${formatDateDMY(budget.date)}`, 145, 58);
+  doc.text(`Estado: ${budget.paymentStatus.toUpperCase() === 'PAID' ? 'PAGADO' : budget.paymentStatus.toUpperCase() === 'PENDING' ? 'PENDIENTE' : budget.paymentStatus.toUpperCase()}`, 145, 63);
 
   // --- CLIENT SHEET/INFO SECTION ---
   doc.setFillColor(lightGray.r, lightGray.g, lightGray.b);
@@ -188,7 +179,7 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFontSize(8.5);
   doc.text(`Empresa / Proyecto: ${cleanText(client?.company || 'Estudio Particular')}`, 25, 80);
   doc.text(`Email: ${client?.email || 'S/D'}`, 25, 85);
-  doc.text(`Telefono: ${client?.phone || 'S/D'}`, 25, 90);
+  doc.text(`Teléfono: ${client?.phone || 'S/D'}`, 25, 90);
   doc.text(`Domicilio: ${cleanText(client?.address || 'Argentina')}`, 25, 95);
 
   // --- ESTIMATE ITEMS TABLE ---
@@ -268,7 +259,7 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   
   const notesText = budget.notes 
     ? cleanText(budget.notes) 
-    : 'Los valores estan fijados en Pesos Argentinos ($) y estan sujetos a revision cumplidos los 30 dias de emitido. El inicio del servicio esta supeditado a la acreditacion de la sena acordada.';
+    : 'Los valores están fijados en Pesos Argentinos ($) y están sujetos a revisión cumplidos los 30 días de emitido. El inicio del servicio está supeditado a la acreditación de la seña acordada.';
   
   const splitNotes = doc.splitTextToSize(notesText, 89);
   doc.text(splitNotes, 23, y + 9);
@@ -317,8 +308,8 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
-  doc.text('Gracias por confiar en UNKE para sus soluciones de diseno visual y desarrollo web.', 20, pageHeight - 14);
-  doc.text('UNKE | www.unke.design | contacto@unke.com.ar', 135, pageHeight - 14);
+  doc.text('Gracias por confiar en UNKE para sus soluciones de diseño visual y desarrollo web.', 20, pageHeight - 14);
+  doc.text('UNKE | www.unke.com.ar | contacto@unke.com.ar', 135, pageHeight - 14);
 
   // Save the PDF file
   const filename = `UNKE_Presupuesto_${budget.id}_${budget.clientName.replace(/\s+/g, '_').substring(0, 20)}.pdf`;

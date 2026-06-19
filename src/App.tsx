@@ -17,7 +17,7 @@ import InternalChat from './components/InternalChat';
 
 import { 
   Building2, Users, FileText, FolderGit2, Layers, 
-  Menu, X, Sparkles, AlertCircle, LogOut 
+  Menu, X, Sparkles, AlertCircle, LogOut, Eye, EyeOff, Check
 } from 'lucide-react';
 
 // @ts-ignore
@@ -1137,13 +1137,20 @@ export function UserAvatar({ user, className = "w-8 h-8" }: { user: string; clas
 }
 
 function Login({ onLogin }: { onLogin: (user: string) => void }) {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('Willy');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUsername = username.trim();
+    if (!cleanUsername) {
+      setError('Por favor, selecciona un socio haciendo clic en su avatar.');
+      return;
+    }
     const creds: Record<string, string> = {
       Fede: 'unkefede',
       Nacho: 'unkenacho',
@@ -1158,9 +1165,20 @@ function Login({ onLogin }: { onLogin: (user: string) => void }) {
     if (userKey && creds[userKey] === password) {
       onLogin(userKey);
     } else {
-      setError('Credenciales incorrectas. Verifique el usuario y la contraseña.');
+      setError('Credenciales incorrectas. Verifique la contraseña del socio seleccionado.');
     }
   };
+
+  const handleSelectUser = (user: string) => {
+    setUsername(user);
+    setError('');
+    // Focus password box automatically to save clicks and keyboard tab movements
+    setTimeout(() => {
+      passwordRef.current?.focus();
+    }, 30);
+  };
+
+  const partners = ['Fede', 'Nacho', 'Willy'];
 
   return (
     <div className="min-h-screen bg-[#fafbfc] flex items-center justify-center p-4 sm:p-6 font-sans">
@@ -1183,7 +1201,7 @@ function Login({ onLogin }: { onLogin: (user: string) => void }) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <div className="bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-2xl p-3.5 flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
@@ -1191,61 +1209,96 @@ function Login({ onLogin }: { onLogin: (user: string) => void }) {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-[#6f6f6e] uppercase tracking-wider">
-              Usuario de Socio
+          {/* Quick Clickable Avatars Selector above the password box */}
+          <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+            <label className="block text-center text-[10px] font-extrabold text-[#6f6f6e] uppercase tracking-wider">
+              Hacé clic en tu perfil:
             </label>
-            <input
-              type="text"
-              required
-              placeholder="Ej: Fede, Nacho, Willy"
-              value={username}
-              onChange={e => { setUsername(e.target.value); setError(''); }}
-              className="w-full bg-white border border-[#6f6f6e]/20 rounded-2xl px-4 py-3 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#34877c] focus:ring-1 focus:ring-[#34877c] font-semibold transition-all shadow-xs"
-            />
+            <div className="flex justify-center gap-5">
+              {partners.map((partner) => {
+                const isSelected = username.toLowerCase() === partner.toLowerCase();
+                return (
+                  <button
+                    key={partner}
+                    type="button"
+                    onClick={() => handleSelectUser(partner)}
+                    className="flex flex-col items-center gap-1.5 focus:outline-none group"
+                  >
+                    <div className="relative">
+                      <UserAvatar 
+                        user={partner} 
+                        className={`w-14 h-14 transition-all duration-300 rounded-full cursor-pointer bg-white ${
+                          isSelected 
+                            ? 'scale-110 ring-4 ring-[#34877c] ring-offset-2 shadow-sm border-transparent' 
+                            : 'opacity-60 grayscale-[20%] group-hover:opacity-100 group-hover:scale-105 border-slate-200 shadow-2xs'
+                        }`} 
+                      />
+                      {isSelected && (
+                        <div className="absolute -bottom-1 -right-1 bg-[#34877c] text-white rounded-full p-0.5 border-2 border-white flex items-center justify-center shadow-xs">
+                          <Check className="w-2 h-2 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-[10px] font-extrabold transition-colors uppercase tracking-wider ${
+                      isSelected ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-600'
+                    }`}>
+                      {partner}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-[#6f6f6e] uppercase tracking-wider">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError(''); }}
-              className="w-full bg-white border border-[#6f6f6e]/20 rounded-2xl px-4 py-3 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#34877c] focus:ring-1 focus:ring-[#34877c] font-semibold transition-all shadow-xs"
-            />
+            <div className="flex justify-between items-center px-1">
+              <label className="block text-[10px] font-bold text-[#6f6f6e] uppercase tracking-wider">
+                Contraseña {username ? `de ${username}` : ''}
+              </label>
+              {username && (
+                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 bg-[#34877c]/10 text-[#34877c] rounded">
+                  {username} Seleccionado
+                </span>
+              )}
+            </div>
+            
+            <div className="relative">
+              <input
+                ref={passwordRef}
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="Introducí tu contraseña"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(''); }}
+                className="w-full bg-white border border-[#6f6f6e]/20 rounded-2xl pl-4 pr-10 py-3 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#34877c] focus:ring-1 focus:ring-[#34877c] font-semibold transition-all shadow-xs"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors focus:outline-none cursor-pointer"
+                title={showPassword ? "Ocultar Contraseña" : "Mostrar Contraseña"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4.5 h-4.5" />
+                ) : (
+                  <Eye className="w-4.5 h-4.5" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full bg-[#34877c] hover:bg-[#2c7269] text-white text-xs font-bold py-3.5 rounded-2xl transition-all shadow-md active:scale-[0.98]"
+            disabled={!username}
+            className={`w-full text-white text-xs font-bold py-3.5 rounded-2xl transition-all shadow-md active:scale-[0.98] ${
+              username 
+                ? 'bg-[#34877c] hover:bg-[#2c7269] cursor-pointer' 
+                : 'bg-gray-350 cursor-not-allowed opacity-50'
+            }`}
           >
             Ingresar al Sistema
           </button>
         </form>
-
-        <div className="border-t border-gray-150/60 pt-5 text-center">
-          <p className="text-[10px] text-[#6f6f6e] font-semibold leading-normal mb-3">
-            Socios Habilitados:
-          </p>
-          <div className="flex justify-center gap-6">
-            <div className="flex flex-col items-center gap-1.5">
-              <UserAvatar user="Fede" className="w-10 h-10" />
-              <span className="text-[10px] font-bold text-gray-850">Fede</span>
-            </div>
-            <div className="flex flex-col items-center gap-1.5">
-              <UserAvatar user="Nacho" className="w-10 h-10" />
-              <span className="text-[10px] font-bold text-gray-850">Nacho</span>
-            </div>
-            <div className="flex flex-col items-center gap-1.5">
-              <UserAvatar user="Willy" className="w-10 h-10" />
-              <span className="text-[10px] font-bold text-gray-850">Willy</span>
-            </div>
-          </div>
-        </div>
 
       </div>
     </div>

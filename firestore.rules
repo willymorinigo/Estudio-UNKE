@@ -19,5 +19,8 @@ service cloud.firestore {
     match /presence/{partnerName} {
       allow read, write: if true;
     }
+    match /messages/{messageId} {
+      allow read, write: if true;
+    }
   }
 }

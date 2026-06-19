@@ -13,6 +13,7 @@ import ClientsList from './components/ClientsList';
 import BudgetCreator from './components/BudgetCreator';
 import ProjectsList from './components/ProjectsList';
 import PiecesManager from './components/PiecesManager';
+import InternalChat from './components/InternalChat';
 
 import { 
   Building2, Users, FileText, FolderGit2, Layers, 
@@ -1092,6 +1093,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Internal Real-time Chat */}
+      <InternalChat currentUser={currentUser} otherActivePartners={otherActivePartners} />
 
     </div>
   );

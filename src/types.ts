@@ -114,3 +114,11 @@ export interface Project {
   updatedAt?: string;
   estimatedDeliveryDate?: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: string; // ISO string
+}
+

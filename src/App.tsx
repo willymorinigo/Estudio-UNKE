@@ -141,6 +141,9 @@ export default function App() {
   };
 
   // Real-time Partner Presence State Definitions
+  const [sessionId] = useState(() => {
+    return 'sess_' + Math.random().toString(36).substring(2, 11);
+  });
   const [onlinePartners, setOnlinePartners] = useState<{ id: string; name: string; lastActive: string }[]>([]);
   const [now, setNow] = useState(Date.now());
 
@@ -161,8 +164,8 @@ export default function App() {
 
     const updatePresence = async () => {
       try {
-        await saveDocument('presence', currentUser, {
-          id: currentUser,
+        await saveDocument('presence', sessionId, {
+          id: sessionId,
           name: currentUser,
           lastActive: new Date().toISOString()
         });
@@ -175,7 +178,7 @@ export default function App() {
     const intervalId = setInterval(updatePresence, 10000);
 
     const handleBeforeUnload = () => {
-      deleteDocument('presence', currentUser).catch(() => {});
+      deleteDocument('presence', sessionId).catch(() => {});
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -183,9 +186,9 @@ export default function App() {
     return () => {
       clearInterval(intervalId);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      deleteDocument('presence', currentUser).catch(() => {});
+      deleteDocument('presence', sessionId).catch(() => {});
     };
-  }, [currentUser]);
+  }, [currentUser, sessionId]);
 
   // Periodic heartbeat timer tick to keep online calculation snappy
   useEffect(() => {
@@ -196,7 +199,7 @@ export default function App() {
   }, []);
 
   const activeOnlinePartners = onlinePartners.filter(p => {
-    if (!p.lastActive || p.id === currentUser) return false;
+    if (!p.lastActive || p.id === sessionId) return false;
     try {
       const diffMs = Math.abs(now - new Date(p.lastActive).getTime());
       return diffMs < 120000; // Active within 2 minutes (highly resilient to user clock skews and network/tab lags)
@@ -848,6 +851,50 @@ export default function App() {
 
         {/* Main Stage Panel Area */}
         <main className="flex-grow p-4 sm:p-6 lg:p-10 max-w-[1400px] w-full mx-auto space-y-8">
+          
+          {/* Concurrency Alert Banner */}
+          <AnimatePresence>
+            {activeOnlinePartners.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -20 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -20 }}
+                className="overflow-hidden"
+              >
+                <div 
+                  className="bg-amber-50/90 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+                  id="concurrency-banner"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100/80 rounded-xl text-amber-800 shrink-0">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-amber-950 uppercase tracking-widest leading-none">
+                        Alerta de Sesión Simultánea
+                      </h4>
+                      <p className="text-xs text-amber-900 font-bold mt-1">
+                        El socio <span className="underline decoration-amber-500/50 font-black">{activeOnlinePartners.map(p => p.name === currentUser ? `${p.name} (otra pestaña)` : p.name).join(', ')}</span> está conectado en este momento.
+                      </p>
+                      <p className="text-[10px] text-amber-700/95 mt-1.5 leading-snug font-medium max-w-2xl">
+                        Para evitar que se sobrescriban o dupliquen carpetas, presupuestos o cobros, sugerimos coordinar los cambios antes de guardar registros en la base de datos de los socios.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 self-end sm:self-center bg-amber-100/50 px-2.5 py-1 rounded-full border border-amber-400/20 shrink-0">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                    </span>
+                    <span className="text-[8px] uppercase font-black text-amber-800 tracking-wider">
+                      Colaboración Activa
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {activeTab === 'dashboard' && (
             <Dashboard
               clients={clients}

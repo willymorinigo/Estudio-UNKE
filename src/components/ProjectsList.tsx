@@ -4,12 +4,20 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Project, ProjectStatus, ProjectTask, PreloadedTask } from '../types';
+import { Project, ProjectStatus, ProjectTask, PreloadedTask, MaintenancePayment } from '../types';
 import { formatCurrency, formatDateDMY } from '../pdfExport';
 import { 
   FolderGit2, CheckCircle2, Circle, Plus, Trash2, 
-  Clock, TrendingUp, Calendar, Inbox, CheckSquare, Sparkles 
+  Clock, TrendingUp, Calendar, Inbox, CheckSquare, Sparkles,
+  Edit, CreditCard, RefreshCw
 } from 'lucide-react';
+
+function advanceOneMonth(dateStr: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T12:00:00'); // noon to avoid TZ issues
+  date.setMonth(date.getMonth() + 1);
+  return date.toISOString().split('T')[0];
+}
 
 interface ProjectsListProps {
   projects: Project[];
@@ -20,6 +28,7 @@ interface ProjectsListProps {
   initiallySelectedProjectId?: string | null;
   onClearInitiallySelectedProject?: () => void;
   onNavigateToBudget?: (budgetId: string) => void;
+  activePartner?: string;
 }
 
 export default function ProjectsList({
@@ -30,7 +39,8 @@ export default function ProjectsList({
   onDeleteProject,
   initiallySelectedProjectId,
   onClearInitiallySelectedProject,
-  onNavigateToBudget
+  onNavigateToBudget,
+  activePartner
 }: ProjectsListProps) {
   // Navigation
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
@@ -55,6 +65,29 @@ export default function ProjectsList({
   const [pStatus, setPStatus] = useState<ProjectStatus>('En Progreso');
   const [pCategory, setPCategory] = useState('Identidad'); // Auto task injection
   const [pEstimatedDeliveryDate, setPEstimatedDeliveryDate] = useState('');
+  const [pIsMonthlyMaintenance, setPIsMonthlyMaintenance] = useState(false);
+  const [pMonthlyAmount, setPMonthlyAmount] = useState('');
+  const [pNextDueDate, setPNextDueDate] = useState('');
+
+  // Editing project state
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [editProjectName, setEditProjectName] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editIsMonthlyMaintenance, setEditIsMonthlyMaintenance] = useState(false);
+  const [editMonthlyAmount, setEditMonthlyAmount] = useState<number>(0);
+  const [editNextDueDate, setEditNextDueDate] = useState('');
+  const [editStatus, setEditStatus] = useState<ProjectStatus>('En Progreso');
+
+  // Registering payment state
+  const [isRegisteringPayment, setIsRegisteringPayment] = useState(false);
+  const [payDate, setPayDate] = useState('');
+  const [payAmount, setPayAmount] = useState('');
+  const [payPeriod, setPayPeriod] = useState('');
+  const [payMethod, setPayMethod] = useState('Transferencia');
+  const [payNotes, setPayNotes] = useState('');
+  const [autoAdvance, setAutoAdvance] = useState(true);
 
   // Editing and maintenance/recurrence states
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -98,7 +131,11 @@ export default function ProjectsList({
         { id: `t_${Date.now()}_3`, name: 'Entrega final y aprobacion de piezas', completed: false }
       ],
       pieces: [],
-      estimatedDeliveryDate: pEstimatedDeliveryDate || undefined
+      estimatedDeliveryDate: pEstimatedDeliveryDate || undefined,
+      isMonthlyMaintenance: pIsMonthlyMaintenance,
+      monthlyAmount: pIsMonthlyMaintenance ? (parseFloat(pMonthlyAmount) || undefined) : undefined,
+      nextDueDate: pIsMonthlyMaintenance ? (pNextDueDate || undefined) : undefined,
+      maintenancePayments: []
     };
 
     onAddProject(newProj);
@@ -111,6 +148,9 @@ export default function ProjectsList({
     setPDesc('');
     setPStatus('En Progreso');
     setPEstimatedDeliveryDate('');
+    setPIsMonthlyMaintenance(false);
+    setPMonthlyAmount('');
+    setPNextDueDate('');
   };
 
   // Update specific task recurrence / details
@@ -227,6 +267,120 @@ export default function ProjectsList({
     onUpdateProject(updatedProject);
   };
 
+  // Edit project handlers
+  const handleOpenEditProject = () => {
+    if (!selectedProject) return;
+    setEditProjectName(selectedProject.name);
+    setEditClientName(selectedProject.clientName);
+    setEditDescription(selectedProject.description || '');
+    setEditStartDate(selectedProject.startDate);
+    setEditStatus(selectedProject.status);
+    setEditIsMonthlyMaintenance(!!selectedProject.isMonthlyMaintenance);
+    setEditMonthlyAmount(selectedProject.monthlyAmount || 0);
+    setEditNextDueDate(selectedProject.nextDueDate || '');
+    setIsEditingProject(true);
+  };
+
+  const handleSaveProjectEdits = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+
+    const updatedProj: Project = {
+      ...selectedProject,
+      name: editProjectName.trim(),
+      clientName: editClientName.trim(),
+      description: editDescription.trim(),
+      startDate: editStartDate,
+      status: editStatus,
+      isMonthlyMaintenance: editIsMonthlyMaintenance,
+      monthlyAmount: editIsMonthlyMaintenance ? editMonthlyAmount : undefined,
+      nextDueDate: editIsMonthlyMaintenance ? (editNextDueDate || undefined) : undefined,
+      endDate: editStatus === 'Completado' ? (selectedProject.endDate || new Date().toISOString().split('T')[0]) : undefined,
+    };
+
+    onUpdateProject(updatedProj);
+    setIsEditingProject(false);
+  };
+
+  // Register payment handlers
+  const handleOpenRegisterPayment = () => {
+    if (!selectedProject) return;
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayAmount(selectedProject.monthlyAmount?.toString() || '');
+    
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const today = new Date();
+    setPayPeriod(`${months[today.getMonth()]} ${today.getFullYear()}`);
+    setPayMethod('Transferencia');
+    setPayNotes('');
+    setAutoAdvance(true);
+    setIsRegisteringPayment(true);
+  };
+
+  const handleSavePayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+
+    const amount = parseFloat(payAmount) || 0;
+    const newPayment: MaintenancePayment = {
+      id: `pay_${Date.now()}`,
+      date: payDate,
+      amount,
+      period: payPeriod.trim(),
+      method: payMethod,
+      notes: payNotes.trim() || undefined,
+      registeredBy: activePartner
+    };
+
+    const currentPayments = selectedProject.maintenancePayments || [];
+    const updatedPayments = [...currentPayments, newPayment];
+
+    let updatedNextDueDate = selectedProject.nextDueDate;
+    if (autoAdvance && selectedProject.nextDueDate) {
+      updatedNextDueDate = advanceOneMonth(selectedProject.nextDueDate);
+    }
+
+    const updatedProj: Project = {
+      ...selectedProject,
+      maintenancePayments: updatedPayments,
+      nextDueDate: updatedNextDueDate,
+    };
+
+    onUpdateProject(updatedProj);
+    setIsRegisteringPayment(false);
+  };
+
+  const handleDeletePayment = (paymentId: string) => {
+    if (!selectedProject || !confirm('¿Estás seguro de que deseas eliminar este registro de pago?')) return;
+    const currentPayments = selectedProject.maintenancePayments || [];
+    const updatedPayments = currentPayments.filter(p => p.id !== paymentId);
+
+    onUpdateProject({
+      ...selectedProject,
+      maintenancePayments: updatedPayments,
+    });
+  };
+
+  const getNextDueDateStatus = (dueDateStr?: string) => {
+    if (!dueDateStr) return { label: 'Sin vencimiento', color: 'text-gray-400 bg-gray-150' };
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dueDateStr < todayStr) {
+      return { label: 'Vencido', color: 'text-red-700 bg-red-100 border border-red-200' };
+    }
+    const today = new Date(todayStr + 'T12:00:00');
+    const due = new Date(dueDateStr + 'T12:00:00');
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 7) {
+      return { label: `Vence en ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`, color: 'text-amber-700 bg-amber-100 border border-amber-200' };
+    }
+    return { label: 'Al día', color: 'text-emerald-700 bg-emerald-100/85 border border-emerald-200' };
+  };
+
   return (
     <div className="space-y-6" id="projects-manager-section">
       
@@ -307,6 +461,44 @@ export default function ProjectsList({
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-gray-800 focus:outline-none"
                 />
               </div>
+
+              <div className="md:col-span-2 border-t border-slate-100 pt-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pIsMonthlyMaintenance}
+                    onChange={e => setPIsMonthlyMaintenance(e.target.checked)}
+                    className="rounded border-gray-300 text-[#34877c] focus:ring-[#34877c]"
+                  />
+                  <span className="text-sm font-semibold text-gray-700">¿Es un servicio de Mantenimiento Mensual Recurrente?</span>
+                </label>
+              </div>
+
+              {pIsMonthlyMaintenance && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Abono Mensual ($) *</label>
+                    <input
+                      type="number"
+                      required={pIsMonthlyMaintenance}
+                      value={pMonthlyAmount}
+                      onChange={e => setPMonthlyAmount(e.target.value)}
+                      placeholder="Ej. 45000"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-[#34877c]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Próximo Vencimiento *</label>
+                    <input
+                      type="date"
+                      required={pIsMonthlyMaintenance}
+                      value={pNextDueDate}
+                      onChange={e => setPNextDueDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-[#34877c]"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
@@ -359,9 +551,14 @@ export default function ProjectsList({
                           : 'bg-white hover:bg-slate-50 border-slate-100'
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-bold text-xs text-gray-800 line-clamp-1">{proj.name}</span>
-                        <span className={`text-[8.5px] px-2 py-0.5 rounded font-black ${
+                      <div className="flex justify-between items-start mb-1 gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {proj.isMonthlyMaintenance && (
+                            <RefreshCw className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          )}
+                          <span className="font-bold text-xs text-gray-800 line-clamp-1">{proj.name}</span>
+                        </div>
+                        <span className={`text-[8.5px] px-2 py-0.5 rounded font-black shrink-0 ${
                           proj.status === 'Completado' 
                             ? 'bg-emerald-100 text-emerald-800' 
                             : proj.status === 'En Revision'
@@ -413,7 +610,16 @@ export default function ProjectsList({
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-[#34877c]" /> Carpeta Técnica de Trabajo
                   </span>
-                  <h3 className="text-lg font-bold text-gray-900 mt-1">{selectedProject.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{selectedProject.name}</h3>
+                    <button
+                      onClick={handleOpenEditProject}
+                      className="text-gray-405 hover:text-[#34877c] p-1 rounded-lg hover:bg-slate-50 transition cursor-pointer shrink-0"
+                      title="Editar detalles del trabajo / mantenimiento"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </div>
                   <p className="text-xs text-[#34877c] font-semibold mt-0.5">Cliente Destinatario: {selectedProject.clientName}</p>
                   
                   {selectedProject.createdBy && (
@@ -497,6 +703,100 @@ export default function ProjectsList({
                   </div>
                 </div>
               </div>
+
+              {/* Bloque de Mantenimiento Mensual */}
+              {selectedProject.isMonthlyMaintenance && (
+                <div className="bg-emerald-50/20 border border-emerald-100 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100/50 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <RefreshCw className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-800">Mantenimiento Mensual Activo</h4>
+                        <p className="text-[10px] text-gray-400">Seguimiento de abonos recurrentes y control de cobros.</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleOpenRegisterPayment}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition self-start shadow-sm cursor-pointer"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" /> Registrar Cobro Mensual
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-white border border-emerald-100/50 p-3 rounded-xl">
+                      <span className="block text-[8px] uppercase font-black text-gray-400 tracking-wider">Abono Mensual</span>
+                      <span className="text-base font-black text-emerald-700">{formatCurrency(selectedProject.monthlyAmount || 0)}</span>
+                    </div>
+
+                    <div className="bg-white border border-emerald-100/50 p-3 rounded-xl">
+                      <span className="block text-[8px] uppercase font-black text-gray-400 tracking-wider">Próximo Vencimiento</span>
+                      <span className="text-xs font-bold text-gray-800 block mt-0.5">
+                        {selectedProject.nextDueDate ? formatDateDMY(selectedProject.nextDueDate) : 'Sin estipular'}
+                      </span>
+                    </div>
+
+                    <div className="bg-white border border-emerald-100/50 p-3 rounded-xl flex flex-col justify-center">
+                      <span className="block text-[8px] uppercase font-black text-gray-400 tracking-wider mb-1">Estado de Cuenta</span>
+                      <div>
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold inline-block ${getNextDueDateStatus(selectedProject.nextDueDate).color}`}>
+                          {getNextDueDateStatus(selectedProject.nextDueDate).label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Historial de Cobros */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Historial de Pagos de Mantenimiento</span>
+                    {!selectedProject.maintenancePayments || selectedProject.maintenancePayments.length === 0 ? (
+                      <div className="text-center py-6 bg-white/50 border border-dashed border-emerald-100 rounded-xl text-xs text-gray-400 italic">
+                        Aún no se han registrado cobros para este abono de mantenimiento.
+                      </div>
+                    ) : (
+                      <div className="border border-emerald-100/50 rounded-xl overflow-hidden bg-white max-h-[180px] overflow-y-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-emerald-50/40 text-[9px] font-extrabold uppercase text-emerald-850 tracking-wider border-b border-emerald-100/50">
+                              <th className="p-2.5 pl-3">Período</th>
+                              <th className="p-2.5">Fecha de Pago</th>
+                              <th className="p-2.5">Medio de Pago</th>
+                              <th className="p-2.5 text-right">Monto Recibido</th>
+                              <th className="p-2.5 text-center">Socio</th>
+                              <th className="p-2.5 text-center w-8">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-emerald-50/30 font-semibold text-gray-700">
+                            {selectedProject.maintenancePayments.slice().reverse().map(pay => (
+                              <tr key={pay.id} className="hover:bg-slate-50/30">
+                                <td className="p-2 pl-3 font-bold text-gray-900">{pay.period}</td>
+                                <td className="p-2 text-gray-500">{formatDateDMY(pay.date)}</td>
+                                <td className="p-2 text-gray-550">{pay.method}</td>
+                                <td className="p-2 text-right font-mono font-bold text-emerald-600">{formatCurrency(pay.amount)}</td>
+                                <td className="p-2 text-center text-[10px] text-gray-450 font-bold">{pay.registeredBy || '-'}</td>
+                                <td className="p-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePayment(pay.id)}
+                                    className="text-gray-300 hover:text-red-500 p-0.5 rounded cursor-pointer transition inline-flex items-center justify-center"
+                                    title="Eliminar cobro registrado"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Scope assigned design pieces: auto counting preloaded weights */}
               {selectedProject.pieces && selectedProject.pieces.length > 0 && (
@@ -777,6 +1077,248 @@ export default function ProjectsList({
                 Sí, Eliminar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN DE DETALLES DEL TRABAJO */}
+      {isEditingProject && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-lg w-full p-6 text-xs text-gray-700 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-[#34877c] mb-4">
+              <div className="bg-teal-50 p-2 rounded-xl">
+                <Edit className="w-5 h-5 text-[#34877c]" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">Editar Detalles del Trabajo</h3>
+            </div>
+            
+            <form onSubmit={handleSaveProjectEdits} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre Comercial del Trabajo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editProjectName}
+                    onChange={e => setEditProjectName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cliente / Compañía *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientName}
+                    onChange={e => setEditClientName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha de Inicio *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editStartDate}
+                    onChange={e => setEditStartDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Estado de Trabajo *</label>
+                  <select
+                    value={editStatus}
+                    onChange={e => setEditStatus(e.target.value as ProjectStatus)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none"
+                  >
+                    <option value="Planificado">Planificado</option>
+                    <option value="En Progreso">En Progreso</option>
+                    <option value="En Revision">En Revisión</option>
+                    <option value="Completado">Completado</option>
+                    <option value="Pausado">Pausado</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Descripción / Objetivos</label>
+                  <textarea
+                    rows={3}
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    placeholder="Escribe los objetivos o pautas de este trabajo..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editIsMonthlyMaintenance}
+                      onChange={e => setEditIsMonthlyMaintenance(e.target.checked)}
+                      className="rounded border-gray-300 text-[#34877c] focus:ring-[#34877c]"
+                    />
+                    <span className="text-xs font-bold text-gray-700">Este trabajo es un Mantenimiento Mensual Recurrente</span>
+                  </label>
+                </div>
+
+                {editIsMonthlyMaintenance && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Abono Mensual ($) *</label>
+                      <input
+                        type="number"
+                        required={editIsMonthlyMaintenance}
+                        value={editMonthlyAmount}
+                        onChange={e => setEditMonthlyAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="Ej. 45000"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Próximo Vencimiento *</label>
+                      <input
+                        type="date"
+                        required={editIsMonthlyMaintenance}
+                        value={editNextDueDate}
+                        onChange={e => setEditNextDueDate(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProject(false)}
+                  className="px-4 py-2 border border-slate-200 text-gray-600 rounded-xl font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#34877c] hover:bg-[#2c7269] text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE REGISTRO DE COBRO DE MANTENIMIENTO */}
+      {isRegisteringPayment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-sm w-full p-6 text-xs text-gray-700 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-emerald-600 mb-4">
+              <div className="bg-emerald-50 p-2 rounded-xl">
+                <CreditCard className="w-5 h-5 text-emerald-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-900">Registrar Cobro de Mantenimiento</h3>
+            </div>
+            
+            <form onSubmit={handleSavePayment} className="space-y-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Período correspondiente *</label>
+                  <input
+                    type="text"
+                    required
+                    value={payPeriod}
+                    onChange={e => setPayPeriod(e.target.value)}
+                    placeholder="Ej. Julio 2026"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Monto Cobrado ($) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={payAmount}
+                    onChange={e => setPayAmount(e.target.value)}
+                    placeholder="Ej. 45000"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Fecha de Cobro *</label>
+                    <input
+                      type="date"
+                      required
+                      value={payDate}
+                      onChange={e => setPayDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Medio de Pago *</label>
+                    <select
+                      value={payMethod}
+                      onChange={e => setPayMethod(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none"
+                    >
+                      <option value="Transferencia">Transferencia</option>
+                      <option value="Mercado Pago">Mercado Pago</option>
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Notas / Observaciones</label>
+                  <textarea
+                    rows={2}
+                    value={payNotes}
+                    onChange={e => setPayNotes(e.target.value)}
+                    placeholder="Ej. Comprobante enviado por Whatsapp"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-gray-800 focus:outline-none"
+                  />
+                </div>
+
+                {selectedProject.nextDueDate && (
+                  <div className="bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/30 flex items-center gap-2 select-none">
+                    <input
+                      type="checkbox"
+                      id="auto-advance-checkbox"
+                      checked={autoAdvance}
+                      onChange={e => setAutoAdvance(e.target.checked)}
+                      className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <label htmlFor="auto-advance-checkbox" className="font-bold text-emerald-800 text-[10px] cursor-pointer">
+                      Avanzar el próximo vencimiento 1 mes automáticamente (al {formatDateDMY(advanceOneMonth(selectedProject.nextDueDate))})
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsRegisteringPayment(false)}
+                  className="px-4 py-2 border border-slate-200 text-gray-600 rounded-xl font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Registrar Cobro
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

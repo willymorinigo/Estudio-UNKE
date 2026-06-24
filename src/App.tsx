@@ -983,6 +983,7 @@ export default function App() {
                 setBudgetTabMode('history');
                 setActiveTab('budgets');
               }}
+              activePartner={activePartner}
             />
           )}
 

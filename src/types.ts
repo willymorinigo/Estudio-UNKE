@@ -97,6 +97,16 @@ export interface ProjectTask {
   monthlyBillingAmount?: number;
 }
 
+export interface MaintenancePayment {
+  id: string;
+  date: string;         // YYYY-MM-DD
+  amount: number;       // Amount paid
+  period: string;       // e.g. "Junio 2026"
+  method: string;       // e.g. "Transferencia", "Mercado Pago", "Efectivo"
+  notes?: string;
+  registeredBy?: string;
+}
+
 export interface Project {
   id: string;
   clientId: string;
@@ -113,6 +123,12 @@ export interface Project {
   updatedBy?: string;
   updatedAt?: string;
   estimatedDeliveryDate?: string;
+  
+  // Monthly maintenance options
+  isMonthlyMaintenance?: boolean;
+  monthlyAmount?: number;
+  nextDueDate?: string; // YYYY-MM-DD
+  maintenancePayments?: MaintenancePayment[];
 }
 
 export interface ChatMessage {

@@ -417,7 +417,8 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
       items: [
         'Presentación de Propuestas: Se enviará al cliente el enlace de una URL de prueba específica y temporal con la propuesta activa, maquetada e interactiva del sitio web para su revisión y aprobación.',
         'Pedido de Información: El cliente deberá entregar la totalidad de los textos tipeados en formato Word o PDF para cada sección, además de las fotografías o imágenes en alta resolución correspondientes. El retraso en esta entrega postergará los plazos finales del proyecto.',
-        'Alcance de Carga: El presupuesto incluye la carga inicial de un máximo de diez (10) casos de ejemplo, productos o entradas demostrativas según el tipo de servicio/cliente. No incluye servicios de hosting mensual ni registro o delegación de dominio.',
+        'Alcance de Carga: El presupuesto incluye la carga inicial de un máximo de diez (10) casos de ejemplo, productos o entradas demostrativas según el tipo de servicio/cliente.',
+        'Servicios Excluidos: No incluye servicios de hosting mensual ni registro o delegación de dominio.',
         'Plazo Estimado de Desarrollo: El tiempo estimado para el maquetado, programación y puesta en producción del sitio web es de 25 a 35 días hábiles.'
       ]
     });

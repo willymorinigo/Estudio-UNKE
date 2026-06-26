@@ -311,6 +311,207 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.text('Gracias por confiar en UNKE para sus soluciones de diseño visual y desarrollo web.', 20, pageHeight - 14);
   doc.text('UNKE | www.unke.com.ar | contacto@unke.com.ar', 135, pageHeight - 14);
 
+  // --- DYNAMIC TERMS & CONDITIONS DETECTION ---
+  const hasBrand = budget.items.some(item => {
+    const nameLower = (item.name || '').toLowerCase();
+    return nameLower.includes('identidad') || 
+           nameLower.includes('marca') || 
+           nameLower.includes('logotipo') || 
+           nameLower.includes('branding') || 
+           nameLower.includes('isologo') || 
+           nameLower.includes('diseño de logo') || 
+           nameLower.includes('flyer') || 
+           nameLower.includes('papelería') || 
+           nameLower.includes('folleto') || 
+           nameLower.includes('tarjeta') || 
+           nameLower.includes('isologotipo') || 
+           nameLower.includes('manual de uso') || 
+           nameLower.includes('ilustrac') || 
+           nameLower.includes('gráfico') || 
+           nameLower.includes('grafico');
+  });
+
+  const hasWeb = budget.items.some(item => {
+    const nameLower = (item.name || '').toLowerCase();
+    return nameLower.includes('web') || 
+           nameLower.includes('página') || 
+           nameLower.includes('sitio') || 
+           nameLower.includes('landing') || 
+           nameLower.includes('desarrollo') || 
+           nameLower.includes('e-commerce') || 
+           nameLower.includes('tienda') || 
+           nameLower.includes('programación') || 
+           nameLower.includes('hosting') || 
+           nameLower.includes('dominio') || 
+           nameLower.includes('maquetado');
+  });
+
+  const hasMonthly = !!budget.isMonthly || budget.items.some(item => {
+    const nameLower = (item.name || '').toLowerCase();
+    return nameLower.includes('mantenimiento') || 
+           nameLower.includes('actualizac') || 
+           nameLower.includes('abono') || 
+           nameLower.includes('mensual') || 
+           nameLower.includes('soporte') || 
+           nameLower.includes('recurrente');
+  });
+
+  // --- ADD PAGE 2: ANEXO DE CONDICIONES Y METODOLOGÍA ---
+  doc.addPage();
+
+  const pageHeight2 = doc.internal.pageSize.getHeight();
+
+  // Draw background accent band at the top of page 2
+  doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+  doc.rect(0, 0, 210, 10, 'F');
+
+  // Mini header on page 2
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+  doc.text('UNKE ESTUDIO CREATIVO', 20, 22);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
+  doc.text(`Anexo de Condiciones y Metodología  |  Presupuesto ${budget.id}`, 20, 26);
+
+  // Divider line
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.4);
+  doc.line(20, 29, 190, 29);
+
+  let y2 = 38;
+
+  interface ContractSection {
+    title: string;
+    items: string[];
+  }
+
+  const sections: ContractSection[] = [];
+
+  // Always add general terms
+  sections.push({
+    title: '1. CONDICIONES COMERCIALES GENERALES',
+    items: [
+      'Forma de Pago: Se establece como condición estándar el abono del 50% en concepto de seña para confirmar el inicio de las tareas, y el 50% restante contra entrega del trabajo finalizado.',
+      'Validez de la Cotización: Los valores expresados en el presente presupuesto tienen una vigencia de 30 días corridos a partir de su fecha de emisión. Transcurrido dicho plazo, quedan sujetos a reajuste sin previo aviso.',
+      'Plazos de Entrega: Los plazos de desarrollo e implementación comenzarán a regir de manera exclusiva una vez que se acredite el pago de la seña correspondiente y el cliente haga entrega completa de todo el material, textos e información requerida.'
+    ]
+  });
+
+  if (hasBrand) {
+    sections.push({
+      title: '2. METODOLOGÍA: DISEÑO DE MARCA & GRÁFICA',
+      items: [
+        'Propuestas y Revisiones: Se enviará al cliente las propuestas de diseño iniciales. A partir de allí, se contemplan hasta dos (2) o tres (3) rondas de correcciones o ajustes menores sobre la propuesta seleccionada.',
+        'Archivos Entregables: Incluye únicamente la provisión de los archivos originales digitales correspondientes, optimizados para impresión profesional o uso digital. No contempla gastos de logística ni servicios de imprenta física.',
+        'Plazo Estimado de Desarrollo: El tiempo estimado para el diseño y presentación de propuestas iniciales de marca es de 10 a 15 días hábiles a partir de la recepción total del material.'
+      ]
+    });
+  }
+
+  if (hasWeb) {
+    sections.push({
+      title: '3. METODOLOGÍA: DISEÑO Y DESARROLLO WEB',
+      items: [
+        'Presentación de Propuestas: Se enviará al cliente el enlace de una URL de prueba específica y temporal con la propuesta activa, maquetada e interactiva del sitio web para su revisión y aprobación.',
+        'Pedido de Información: El cliente deberá entregar la totalidad de los textos tipeados en formato Word o PDF para cada sección, además de las fotografías o imágenes en alta resolución correspondientes. El retraso en esta entrega postergará los plazos finales del proyecto.',
+        'Alcance de Carga: El presupuesto incluye la carga inicial de un máximo de diez (10) casos de ejemplo, productos o entradas demostrativas según el tipo de servicio/cliente. No incluye servicios de hosting mensual ni registro o delegación de dominio.',
+        'Plazo Estimado de Desarrollo: El tiempo estimado para el maquetado, programación y puesta en producción del sitio web es de 25 a 35 días hábiles.'
+      ]
+    });
+  }
+
+  if (hasMonthly) {
+    sections.push({
+      title: '4. ACTUALIZACIONES Y ABONOS MENSUALES',
+      items: [
+        'Alcance de las Actualizaciones: Las actualizaciones mensuales se presupuestan por separado y contemplan exclusivamente el agregado, reemplazo o modificación de información (textos, imágenes, documentos) dentro de las secciones ya existentes.',
+        'Exclusión Estructural: No se contemplan modificaciones estructurales de diseño, cambios del maquetado del sitio web ya aprobado ni programación de nuevas funcionalidades estructurales o maquetados adicionales.'
+      ]
+    });
+  }
+
+  sections.forEach((sec) => {
+    // We will measure how many lines the items take to draw a perfectly matching left accent bar!
+    let linesCount = 0;
+    const itemLines: string[][] = [];
+    
+    sec.items.forEach(item => {
+      const split = doc.splitTextToSize(`• ${item}`, 160);
+      itemLines.push(split);
+      linesCount += split.length;
+    });
+    
+    // Total height of the section: title (5) + padding + items (linesCount * 4) + spacing between sections (8)
+    const cardHeight = 6 + (linesCount * 4.2) + (sec.items.length * 1) + 2;
+    
+    // Ensure we don't overflow Page 2
+    if (y2 + cardHeight > pageHeight2 - 25) {
+      doc.addPage();
+      // Draw minimal header on Page 3
+      doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      doc.rect(0, 0, 210, 10, 'F');
+      
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      doc.text('UNKE ESTUDIO CREATIVO', 20, 22);
+      
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
+      doc.text(`Anexo de Condiciones y Metodología (Cont.) | Presupuesto ${budget.id}`, 20, 26);
+      
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.4);
+      doc.line(20, 29, 190, 29);
+      
+      y2 = 38;
+    }
+    
+    // Draw left bar
+    doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.rect(20, y2, 1.5, cardHeight, 'F');
+    
+    // Draw Section Title
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text(sec.title, 24, y2 + 4);
+    
+    let itemY = y2 + 9;
+    
+    // Draw Section Items
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
+    
+    itemLines.forEach(lines => {
+      lines.forEach(line => {
+        doc.text(line, 24, itemY);
+        itemY += 4.2;
+      });
+      itemY += 1.2; // small spacing between items
+    });
+    
+    y2 += cardHeight + 6;
+  });
+
+  // --- FOOTER NOTIFICATION ON ANEXO PAGE ---
+  const lastPageHeight = doc.internal.pageSize.getHeight();
+  doc.setDrawColor(230, 230, 230);
+  doc.line(20, lastPageHeight - 20, 190, lastPageHeight - 20);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
+  doc.text('Este documento anexo forma parte integrante del presupuesto y constituye un compromiso de calidad y metodología recíproca.', 20, lastPageHeight - 14);
+  
+  doc.setFont('Helvetica', 'bold');
+  doc.text('UNKE  |  www.unke.com.ar  |  contacto@unke.com.ar', 20, lastPageHeight - 9);
+
   // Save the PDF file
   const filename = `UNKE_Presupuesto_${budget.id}_${budget.clientName.replace(/\s+/g, '_').substring(0, 20)}.pdf`;
   doc.save(filename);

@@ -54,6 +54,7 @@ export interface BudgetItem {
   price: number;
   quantity: number;
   subtotal: number;
+  completed?: boolean;
 }
 
 export interface Payment {

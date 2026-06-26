@@ -193,6 +193,24 @@ export default function ProjectsList({
     onUpdateProject(updatedProject);
   };
 
+  // Toggle design piece status
+  const handleTogglePiece = (pieceIndex: number) => {
+    if (!selectedProject || !selectedProject.pieces) return;
+    const updatedPieces = [...selectedProject.pieces];
+    const piece = updatedPieces[pieceIndex];
+    updatedPieces[pieceIndex] = {
+      ...piece,
+      completed: !piece.completed
+    };
+
+    const updatedProject: Project = {
+      ...selectedProject,
+      pieces: updatedPieces
+    };
+
+    onUpdateProject(updatedProject);
+  };
+
   // Inject a manual custom task
   const handleAddManualTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -805,24 +823,56 @@ export default function ProjectsList({
                     Piezas de Trabajo Incluidas (Sumatoria Técnica: {formatCurrency(selectedProject.pieces.reduce((sum, p) => sum + p.subtotal, 0))})
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedProject.pieces.map(piece => (
-                      <div key={piece.id} className="p-2.5 bg-[#34877c]/5 border border-[#34877c]/15 rounded-xl flex justify-between items-center text-xs">
-                        <div>
-                          <p className="font-bold text-gray-800 line-clamp-1">{piece.name}</p>
-                          <p className="text-[10px] text-gray-400">Cant: {piece.quantity} unit.</p>
+                    {selectedProject.pieces.map((piece, idx) => {
+                      const isCompleted = !!piece.completed;
+                      return (
+                        <div 
+                          key={piece.id} 
+                          className={`p-2.5 rounded-xl flex items-center justify-between text-xs border transition-all duration-200 ${
+                            isCompleted 
+                              ? 'bg-emerald-50/30 border-emerald-200/70 text-gray-500' 
+                              : 'bg-[#34877c]/5 border-[#34877c]/15 text-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePiece(idx)}
+                              className="shrink-0 flex items-center justify-center cursor-pointer focus:outline-none"
+                              title={isCompleted ? "Marcar como pendiente" : "Marcar como entregado/concluido"}
+                            >
+                              {isCompleted ? (
+                                <div className="w-5 h-5 rounded-md bg-emerald-500 border border-emerald-600 flex items-center justify-center text-white transition-all duration-200">
+                                  <svg className="w-3.5 h-3.5 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded-md bg-white border border-gray-300 hover:border-[#34877c] transition-all duration-200" />
+                              )}
+                            </button>
+                            <div className="min-w-0">
+                              <p className={`font-bold text-gray-800 line-clamp-1 ${isCompleted ? 'line-through text-gray-400 font-sans font-normal' : ''}`}>
+                                {piece.name}
+                              </p>
+                              <p className="text-[10px] text-gray-400 font-semibold">Cant: {piece.quantity} unit.</p>
+                            </div>
+                          </div>
+                          <span className={`font-mono font-bold shrink-0 ml-2 ${isCompleted ? 'text-gray-400 line-through' : 'text-[#34877c]'}`}>
+                            {formatCurrency(piece.price)}
+                          </span>
                         </div>
-                        <span className="font-mono font-bold text-[#34877c]">{formatCurrency(piece.price)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Checklist and quick presets tasks injector */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Checklist panel */}
+              <div className="space-y-3">
                 
                 {/* CHECKLIST LIST */}
-                <div className="md:col-span-2 space-y-3">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
                     <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Checklist de Control Operativo</h4>
                     <span className="text-[10px] text-gray-500 font-mono">
@@ -837,7 +887,7 @@ export default function ProjectsList({
                       placeholder="Insertar tarea personalizada sobre la marcha..."
                       value={newTaskName}
                       onChange={e => setNewTaskName(e.target.value)}
-                      className="flex-grow bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none"
+                      className="flex-grow bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-[#34877c]"
                     />
                     <button
                       type="submit"
@@ -847,7 +897,7 @@ export default function ProjectsList({
                     </button>
                   </form>
 
-                  <div className="space-y-1 bg-white max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-1 bg-white max-h-[350px] overflow-y-auto pr-1">
                     {selectedProject.tasks.length === 0 ? (
                       <div className="text-center py-6 text-gray-400 italic text-xs">
                         No hay tareas configuradas en este checklist de proyecto.
@@ -865,13 +915,19 @@ export default function ProjectsList({
                                 onClick={() => handleToggleTask(idx)}
                                 className="flex items-center gap-2.5 cursor-pointer flex-grow select-none pr-2"
                               >
-                                {task.completed ? (
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                                ) : (
-                                  <Circle className="w-4 h-4 text-gray-300 shrink-0" />
-                                )}
+                                <div className="shrink-0 flex items-center justify-center">
+                                  {task.completed ? (
+                                    <div className="w-5 h-5 rounded-md bg-emerald-500 border border-emerald-600 flex items-center justify-center text-white transition-all duration-200">
+                                      <svg className="w-3.5 h-3.5 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </div>
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-md bg-white border-2 border-gray-300 hover:border-[#34877c] transition-all duration-200" />
+                                  )}
+                                </div>
                                 <div className="flex flex-col text-left">
-                                  <span className={`text-gray-700 leading-tight ${task.completed ? 'line-through text-gray-400 font-sans font-normal' : 'font-semibold text-[11px]'}`}>
+                                  <span className={`text-gray-750 leading-tight ${task.completed ? 'line-through text-gray-400 font-sans font-normal' : 'font-semibold text-[11px]'}`}>
                                     {task.name}
                                   </span>
                                   {task.isMaintenance && (
@@ -962,48 +1018,6 @@ export default function ProjectsList({
                         );
                       })
                     )}
-                  </div>
-                </div>
-
-                {/* QUICK PRESETS INJECTOR */}
-                <div className="md:col-span-1 space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                  <div className="flex items-center gap-1">
-                    <Sparkles className="w-4 h-4 text-[#34877c]" />
-                    <span className="text-[10px] uppercase font-bold text-gray-800 tracking-wider">Inyector de Tareas</span>
-                  </div>
-                  <p className="text-[9.5px] leading-relaxed text-gray-400">
-                    Añade instantáneamente tareas del catálogo pre-definido para agilizar la agenda:
-                  </p>
-
-                  <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1">
-                    {preloadedTasks.map(tTask => {
-                      const exists = selectedProject.tasks.some(t => t.name === tTask.name);
-                      return (
-                        <button
-                          key={tTask.id}
-                          type="button"
-                          onClick={() => handleQuickInjectTask(tTask.name)}
-                          className={`w-full text-left p-2.5 rounded-xl text-[10px] border transition flex items-start gap-2.5 cursor-pointer ${
-                            exists 
-                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-700' 
-                              : 'bg-white hover:bg-slate-50 border-slate-100 hover:border-slate-200 text-slate-700 font-medium'
-                          }`}
-                          title={exists ? "Haga clic para remover (destildar) esta tarea del proyecto" : "Haga clic para inyectar esta tarea al proyecto"}
-                        >
-                          <div className="mt-0.5 shrink-0">
-                            {exists ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            ) : (
-                              <Circle className="w-3.5 h-3.5 text-gray-300" />
-                            )}
-                          </div>
-                          <div className="flex flex-col justify-start gap-0.5 flex-1">
-                            <span className={`line-clamp-2 leading-snug ${exists ? 'font-semibold' : ''}`}>{tTask.name}</span>
-                            <span className={`text-[7px] font-extrabold uppercase block tracking-wider mt-0.5 ${exists ? 'text-emerald-600' : 'text-gray-400'}`}>{tTask.category}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
                   </div>
                 </div>
 

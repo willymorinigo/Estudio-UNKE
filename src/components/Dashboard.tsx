@@ -198,6 +198,7 @@ export default function Dashboard({
         daysRemaining: diffDays
       };
     })
+    .filter(p => p.daysRemaining <= 20)
     .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
   // 2. Billing alerts and abonos logic for maintenance tasks and monthly budgets
@@ -388,7 +389,7 @@ export default function Dashboard({
           <div className="space-y-4">
             <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 border-b border-rose-100/20 pb-2">
               <Clock className="w-4 h-4 text-white shrink-0" />
-              Vencimientos de Entrega Próxima ({projectsWithDelivery.length})
+              Vencimientos en Próximos 20 días ({projectsWithDelivery.length})
             </h4>
             {projectsWithDelivery.length > 0 ? (
               <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
@@ -435,7 +436,7 @@ export default function Dashboard({
             ) : (
               <div className="text-center py-8 px-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 space-y-1.5 flex-1 flex flex-col justify-center">
                 <Calendar className="w-5 h-5 text-gray-300 mx-auto" />
-                <p className="text-[11px] font-bold text-gray-750">No hay entregas asignadas</p>
+                <p className="text-[11px] font-bold text-gray-750">Sin entregas próximas (20 días)</p>
                 <p className="text-[9px] text-gray-400 max-w-[280px] mx-auto leading-normal">
                   Estipula una **Fecha Tentativa de Entrega** al crear un presupuesto o editando la carpeta del proyecto.
                 </p>

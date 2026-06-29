@@ -100,6 +100,45 @@ export default function BudgetCreator({
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
+  const notesTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const applyTextFormat = (formatType: 'bold' | 'underline' | 'bullet') => {
+    const textarea = notesTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+
+    let replacement = '';
+    let newCursorPos = start;
+
+    if (formatType === 'bold') {
+      replacement = `**${selectedText}**`;
+      newCursorPos = start + 2 + selectedText.length + 2;
+    } else if (formatType === 'underline') {
+      replacement = `__${selectedText}__`;
+      newCursorPos = start + 2 + selectedText.length + 2;
+    } else if (formatType === 'bullet') {
+      if (selectedText) {
+        replacement = selectedText.split('\n').map(line => line.startsWith('• ') ? line : `• ${line}`).join('\n');
+        newCursorPos = start + replacement.length;
+      } else {
+        replacement = '• ';
+        newCursorPos = start + 2;
+      }
+    }
+
+    const updatedText = text.substring(0, start) + replacement + text.substring(end);
+    setBudgetNotes(updatedText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   const getCategoryMultiplier = (category: 'A' | 'B' | 'C') => {
     if (category === 'A') return 1.35;
     if (category === 'C') return 0.65;
@@ -619,6 +658,62 @@ export default function BudgetCreator({
                   </div>
                 )}
               </div>
+
+              {/* Notas Comerciales Especiales with Toolbar */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-2.5">
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-black text-gray-800 uppercase tracking-wider">
+                      Notas Comerciales Especiales
+                    </label>
+                    <p className="text-[9px] text-gray-400 font-semibold">
+                      Establecé las condiciones particulares, plazos o señas de este presupuesto
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => applyTextFormat('bold')}
+                      className="px-2.5 py-1 text-xs font-extrabold text-gray-750 hover:bg-slate-50 hover:text-gray-900 rounded transition border border-transparent hover:border-slate-150"
+                      title="Negrita: Selecciona texto y haz clic"
+                    >
+                      B
+                    </button>
+                    <div className="w-[1px] h-3.5 bg-slate-200 self-center mx-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => applyTextFormat('underline')}
+                      className="px-2.5 py-1 text-xs font-semibold text-gray-750 hover:bg-slate-50 hover:text-gray-900 rounded transition border border-transparent hover:border-slate-150"
+                      title="Subrayado: Selecciona texto y haz clic"
+                    >
+                      <span className="underline">U</span>
+                    </button>
+                    <div className="w-[1px] h-3.5 bg-slate-200 self-center mx-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => applyTextFormat('bullet')}
+                      className="px-2.5 py-1 text-xs font-semibold text-gray-750 hover:bg-slate-50 hover:text-gray-900 rounded transition border border-transparent hover:border-slate-150"
+                      title="Viñeta: Haz clic para agregar una viñeta"
+                    >
+                      • Viñeta
+                    </button>
+                  </div>
+                </div>
+                
+                <textarea
+                  ref={notesTextareaRef}
+                  rows={4}
+                  value={budgetNotes}
+                  onChange={e => setBudgetNotes(e.target.value)}
+                  placeholder="Condiciones de pago, plazo estimado del proyecto, seña requerida o algún comentario de servicio..."
+                  className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-gray-800 focus:outline-none focus:border-[#34877c] placeholder:text-gray-400 font-sans shadow-inner"
+                />
+                
+                <div className="bg-slate-100 rounded-lg p-2.5 text-[9.5px] leading-relaxed text-gray-500 font-medium flex gap-2">
+                  <span className="text-[#34877c] font-bold">💡 Tip:</span>
+                  <span>Podés resaltar texto seleccionándolo y tocando <strong>B</strong> o <strong>U</strong>. Las viñetas y el formato se dibujarán con estilo profesional en el PDF descargable.</span>
+                </div>
+              </div>
             </div>
 
             {/* RIGHT SIDEBAR: Customer details and final save */}
@@ -646,18 +741,6 @@ export default function BudgetCreator({
                     No has vinculado ningún cliente todavía. Selecciona uno en el "Paso 1" de arriba.
                   </div>
                 )}
-
-                {/* Notes */}
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Notas Comerciales Especiales</label>
-                  <textarea
-                    rows={4}
-                    value={budgetNotes}
-                    onChange={e => setBudgetNotes(e.target.value)}
-                    placeholder="Condiciones de pago, plazo estimado del proyecto, seña requerida o algún comentario de servicio..."
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-gray-800 focus:outline-none placeholder:text-gray-400"
-                  />
-                </div>
 
                 {/* Fecha Tentativa de Entrega & Opción Mensual */}
                 <div className="space-y-3">

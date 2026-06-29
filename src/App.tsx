@@ -100,11 +100,14 @@ export default function App() {
     return localStorage.getItem('unke_current_user') || null;
   });
 
+  const [showInactivityNotice, setShowInactivityNotice] = useState(false);
+
   const handleLogin = (user: string) => {
     setCurrentUser(user);
     localStorage.setItem('unke_current_user', user);
     setActivePartner(user);
     localStorage.setItem('unke_active_partner', user);
+    setShowInactivityNotice(false);
   };
 
   const handleLogout = async () => {
@@ -202,6 +205,44 @@ export default function App() {
       deleteDocument('presence', sessionId).catch(() => {});
     };
   }, [currentUser, sessionId]);
+
+  // Inactivity Auto-Logout (5 minutes of no mouse, keyboard, or touch events)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in ms
+    let lastActivity = Date.now();
+    let timeoutId: any;
+
+    const checkInactivity = () => {
+      const nowTime = Date.now();
+      if (nowTime - lastActivity >= INACTIVITY_TIMEOUT) {
+        setShowInactivityNotice(true);
+        handleLogout();
+      } else {
+        const remainingTime = INACTIVITY_TIMEOUT - (nowTime - lastActivity);
+        timeoutId = setTimeout(checkInactivity, Math.max(1000, remainingTime));
+      }
+    };
+
+    const resetActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      window.addEventListener(event, resetActivity, { passive: true });
+    });
+
+    timeoutId = setTimeout(checkInactivity, INACTIVITY_TIMEOUT);
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, resetActivity);
+      });
+      clearTimeout(timeoutId);
+    };
+  }, [currentUser]);
 
   // Periodic heartbeat timer tick to keep online calculation snappy (tick every 1.5 seconds)
   useEffect(() => {
@@ -559,7 +600,7 @@ export default function App() {
   };
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} inactivityNotice={showInactivityNotice} />;
   }
 
   return (
@@ -1149,7 +1190,7 @@ export function UserAvatar({ user, className = "w-8 h-8" }: { user: string; clas
   );
 }
 
-function Login({ onLogin }: { onLogin: (user: string) => void }) {
+function Login({ onLogin, inactivityNotice }: { onLogin: (user: string) => void; inactivityNotice?: boolean }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -1287,6 +1328,16 @@ function Login({ onLogin }: { onLogin: (user: string) => void }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {inactivityNotice && !error && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-950 text-[11px] rounded-2xl p-3.5 flex items-start gap-2.5 animate-fadeIn shadow-2xs">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+              <div>
+                <p className="font-black leading-none mb-1">Sesión Cerrada</p>
+                <p className="leading-relaxed font-semibold text-amber-800">Se cerró tu sesión por inactividad. Por seguridad, desconectamos las cuentas inactivas por más de 5 minutos.</p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-2xl p-3.5 flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />

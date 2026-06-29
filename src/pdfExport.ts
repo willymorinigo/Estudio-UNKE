@@ -162,25 +162,68 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   doc.text(`Fecha: ${formatDateDMY(budget.date)}`, 145, 58);
   doc.text(`Estado: ${budget.paymentStatus.toUpperCase() === 'PAID' ? 'PAGADO' : budget.paymentStatus.toUpperCase() === 'PENDING' ? 'PENDIENTE' : budget.paymentStatus.toUpperCase()}`, 145, 63);
 
-  // --- CLIENT SHEET/INFO SECTION ---
+  // --- CLIENT SHEET & TOTALS SECTION ---
+  let sumPaid = budget.payments.reduce((acc, curr) => acc + curr.amount, 0);
+  let balance = budget.total - sumPaid;
+
+  // Left Column: Client Info
   doc.setFillColor(lightGray.r, lightGray.g, lightGray.b);
-  doc.rect(20, 68, 170, 32, 'F');
+  doc.rect(20, 68, 95, 32, 'F');
 
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text('CLIENTE:', 25, 74);
+  doc.text('CLIENTE:', 24, 73.5);
 
   doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
   doc.setFont('Helvetica', 'bold');
-  doc.text(cleanText(budget.clientName), 45, 74);
+  const clientNameText = cleanText(budget.clientName);
+  const splitClientName = doc.splitTextToSize(clientNameText, 66);
+  doc.text(splitClientName, 41, 73.5);
 
   doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+  const companyText = `Empresa/Proy: ${cleanText(client?.company || 'Estudio Particular')}`;
+  const emailText = `Email: ${client?.email || 'S/D'}`;
+  const phoneText = `Teléfono: ${client?.phone || 'S/D'}`;
+  const addressText = `Domicilio: ${cleanText(client?.address || 'Argentina')}`;
+
+  doc.text(doc.splitTextToSize(companyText, 89), 24, 79);
+  doc.text(doc.splitTextToSize(emailText, 89), 24, 84);
+  doc.text(doc.splitTextToSize(phoneText, 89), 24, 89);
+  doc.text(doc.splitTextToSize(addressText, 89), 24, 94);
+
+  // Right Column: Totals Box (next to Client Info)
+  doc.setFillColor(lightGray.r, lightGray.g, lightGray.b);
+  doc.rect(120, 68, 70, 32, 'F');
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
+  doc.text('Total Presupuestado:', 124, 74);
+  doc.text(formatCurrency(budget.total), 162, 74);
+
+  doc.text('Pagos Registrados:', 124, 80);
+  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+  doc.text(`-${formatCurrency(sumPaid)}`, 162, 80);
+
+  // Thick accent line in totals box
+  doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+  doc.setLineWidth(0.4);
+  doc.line(124, 84, 186, 84);
+
+  doc.setFont('Helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text(`Empresa / Proyecto: ${cleanText(client?.company || 'Estudio Particular')}`, 25, 80);
-  doc.text(`Email: ${client?.email || 'S/D'}`, 25, 85);
-  doc.text(`Teléfono: ${client?.phone || 'S/D'}`, 25, 90);
-  doc.text(`Domicilio: ${cleanText(client?.address || 'Argentina')}`, 25, 95);
+  doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
+  doc.text('Saldo Pendiente:', 124, 90);
+  
+  if (balance <= 0) {
+    doc.setTextColor(34, 139, 34); // Forest green
+    doc.text('PAGADO', 162, 90);
+  } else {
+    doc.setTextColor(190, 40, 40); // Soft red
+    doc.text(formatCurrency(balance), 162, 90);
+  }
 
   // --- ESTIMATE ITEMS TABLE ---
   let y = 110;
@@ -235,10 +278,24 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
     y += increment;
   });
 
-  // --- PAYMENT STATUS & TOTAL BOX ---
+  // --- PAYMENT STATUS & NOTES BOX (FULL WIDTH) ---
+  const notesText = budget.notes 
+    ? cleanText(budget.notes) 
+    : 'Los valores están fijados en Pesos Argentinos ($) y están sujetos a revisión cumplidos los 30 días de emitido. El inicio del servicio está supeditado a la acreditación de la seña acordada.';
+
+  // Calculate notes height dynamically with full width (164mm max text width)
+  const paragraphs = notesText.split('\n');
+  let totalNotesLines = 0;
+  paragraphs.forEach(p => {
+    const wrapped = doc.splitTextToSize(p, 164);
+    totalNotesLines += Math.max(1, wrapped.length);
+  });
+  const paragraphBreaks = paragraphs.length - 1;
+  const notesBoxHeight = Math.max(20, 9 + (totalNotesLines * 3.8) + (paragraphBreaks * 1.5) + 4);
+
   y += 4;
-  if (y > 230) {
-    // Prevent drawing totals at the absolute bottom edge
+  if (y + notesBoxHeight > 255) {
+    // Prevent drawing notes at the absolute bottom edge
     doc.addPage();
     y = 25;
   }
@@ -246,59 +303,15 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   // Draw notes
   doc.setDrawColor(230, 230, 230);
   doc.setFillColor(253, 253, 253);
-  doc.rect(20, y, 95, 30, 'FD');
+  doc.rect(20, y, 170, notesBoxHeight, 'FD');
   
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text('Condiciones y Notas:', 23, y + 5);
+  doc.text('Descripción del proyecto:', 23, y + 5);
 
-  doc.setFont('Helvetica', 'italic');
-  doc.setFontSize(7);
-  doc.setTextColor(mediumGray.r, mediumGray.g, mediumGray.b);
-  
-  const notesText = budget.notes 
-    ? cleanText(budget.notes) 
-    : 'Los valores están fijados en Pesos Argentinos ($) y están sujetos a revisión cumplidos los 30 días de emitido. El inicio del servicio está supeditado a la acreditación de la seña acordada.';
-  
-  const splitNotes = doc.splitTextToSize(notesText, 89);
-  doc.text(splitNotes, 23, y + 9);
-
-  // Totals Breakdown Table
-  let sumPaid = budget.payments.reduce((acc, curr) => acc + curr.amount, 0);
-  let balance = budget.total - sumPaid;
-
-  doc.setFillColor(lightGray.r, lightGray.g, lightGray.b);
-  doc.rect(120, y, 70, 30, 'F');
-
-  doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
-  doc.text('Total Presupuestado:', 123, y + 6);
-  doc.text(formatCurrency(budget.total), 162, y + 6);
-
-  doc.text('Pagos Registrados:', 123, y + 13);
-  doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.text(`-${formatCurrency(sumPaid)}`, 162, y + 13);
-
-  // Thick accent line in totals box
-  doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
-  doc.setLineWidth(0.4);
-  doc.line(123, y + 17, 187, y + 17);
-
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(darkGray.r, darkGray.g, darkGray.b);
-  doc.text('Saldo Pendiente:', 123, y + 23);
-  
-  // Highlight balance color depending on whether it's fully paid
-  if (balance <= 0) {
-    doc.setTextColor(34, 139, 34); // Forest green
-    doc.text('PAGADO', 162, y + 23);
-  } else {
-    doc.setTextColor(190, 40, 40); // Soft red
-    doc.text(formatCurrency(balance), 162, y + 23);
-  }
+  // Render the rich text formatted notes in full width
+  drawRichNotesText(doc, notesText, 23, y + 9, 164, 7, 3.8);
 
   // --- FOOTER NOTIFICATION ---
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -516,4 +529,74 @@ export async function exportBudgetToPDF(budget: Budget, client?: Client) {
   // Save the PDF file
   const filename = `UNKE_Presupuesto_${budget.id}_${budget.clientName.replace(/\s+/g, '_').substring(0, 20)}.pdf`;
   doc.save(filename);
+}
+
+function drawRichNotesText(
+  doc: any,
+  text: string,
+  startX: number,
+  startY: number,
+  maxWidth: number,
+  fontSize: number,
+  lineHeight: number
+) {
+  const paragraphs = text.split('\n');
+  let currentY = startY;
+  
+  doc.setFontSize(fontSize);
+  doc.setTextColor(111, 111, 110); // mediumGray (#6f6f6e)
+  
+  paragraphs.forEach((paragraph, pIdx) => {
+    if (pIdx > 0) {
+      currentY += 1.5; // paragraph spacing
+    }
+    
+    if (paragraph.trim() === '') {
+      currentY += lineHeight * 0.5;
+      return;
+    }
+    
+    const wrappedLines = doc.splitTextToSize(paragraph, maxWidth);
+    
+    wrappedLines.forEach((line: string) => {
+      // Split by ** or __ tokens
+      const tokens = line.split(/(\*\*.*?\*\*|__.*?__)/g);
+      let currentX = startX;
+      
+      tokens.forEach((token) => {
+        if (!token) return;
+        
+        let isBold = false;
+        let isUnderline = false;
+        let cleanToken = token;
+        
+        if (token.startsWith('**') && token.endsWith('**')) {
+          isBold = true;
+          cleanToken = token.slice(2, -2);
+        } else if (token.startsWith('__') && token.endsWith('__')) {
+          isUnderline = true;
+          cleanToken = token.slice(2, -2);
+        }
+        
+        if (isBold) {
+          doc.setFont('Helvetica', 'bold');
+        } else {
+          doc.setFont('Helvetica', 'italic');
+        }
+        
+        doc.text(cleanToken, currentX, currentY);
+        const tokenWidth = doc.getTextWidth(cleanToken);
+        
+        if (isUnderline) {
+          doc.setLineWidth(0.2);
+          doc.setDrawColor(111, 111, 110);
+          doc.line(currentX, currentY + 0.5, currentX + tokenWidth, currentY + 0.5);
+        }
+        
+        currentX += tokenWidth;
+      });
+      
+      currentY += lineHeight;
+    });
+  });
 }
